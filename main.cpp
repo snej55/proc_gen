@@ -8,6 +8,9 @@
 #include <vulkan/vulkan.h>
 #include <volk/volk.h>
 
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_vulkan.h>
 
@@ -21,7 +24,8 @@ int main(int argc, char* argv[])
 {
     VkInstance instance{VK_NULL_HANDLE};
     VkDevice device{VK_NULL_HANDLE};
-    VkDevice queue{VK_NULL_HANDLE};
+    VkQueue queue{VK_NULL_HANDLE};
+    VmaAllocator allocator{VK_NULL_HANDLE};
 
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
@@ -46,18 +50,23 @@ int main(int argc, char* argv[])
     uint32_t instanceExtensionsCount{0};
     char const* const* instanceExtensions{SDL_Vulkan_GetInstanceExtensions(&instanceExtensionsCount)};
 
-    std::cout << "Extensions (" << instanceExtensionsCount << "):\n";
-    for (std::size_t i{0}; i < instanceExtensionsCount; ++i)
+    std::vector<const char*> extensions(instanceExtensions, instanceExtensions + instanceExtensionsCount);
+    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+
+    std::cout << "Extensions (" << extensions.size() << "):\n";
+    for (std::size_t i{0}; i < extensions.size(); ++i)
     {
-        std::cout << "\t" << instanceExtensions[i] << "\n";
+        std::cout << "\t" << extensions[i] << "\n";
     }
     std::cout << std::endl;
 
     VkInstanceCreateInfo instanceCI{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR,
         .pApplicationInfo = &appInfo,
-        .enabledExtensionCount = instanceExtensionsCount,
-        .ppEnabledExtensionNames = instanceExtensions};
+        .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
+        .ppEnabledExtensionNames = extensions.data()};
     if (vkCreateInstance(&instanceCI, nullptr, &instance) != VK_SUCCESS)
     {
         std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create Vulkan instance!" << END_ERROR << std::endl;
@@ -125,7 +134,65 @@ int main(int argc, char* argv[])
         .descriptorBindingVariableDescriptorCount = true,
         .runtimeDescriptorArray = true,
         .bufferDeviceAddress = true};
-    // const std::vector<const char*>
+    VkPhysicalDeviceVulkan13Features enabledVk13Features{
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES,
+        .pNext = &enabledVk12Features,
+        .synchronization2 = true,
+        .dynamicRendering = true};
+    VkPhysicalDeviceFeatures enabledVk10Features{.samplerAnisotropy = VK_TRUE};
+
+    uint32_t extensionsCount = 0;
+    vkEnumerateDeviceExtensionProperties(devices[deviceIndex], nullptr, &extensionsCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionsCount);
+    vkEnumerateDeviceExtensionProperties(devices[deviceIndex], nullptr, &extensionsCount, availableExtensions.data());
+
+    std::vector<const char*> deviceExtensions{VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    for (const VkExtensionProperties& extension : availableExtensions)
+    {
+        if (std::string(extension.extensionName) == "VK_KHR_portability_subset")
+        {
+            deviceExtensions.push_back("VK_KHR_portability_subset");
+            break;
+        }
+    }
+
+    VkDeviceCreateInfo deviceCI{
+        .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        .pNext = &enabledVk13Features,
+        .queueCreateInfoCount = 1,
+        .pQueueCreateInfos = &queueCI,
+        .enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size()),
+        .ppEnabledExtensionNames = deviceExtensions.data(),
+        .pEnabledFeatures = &enabledVk10Features};
+
+    if (vkCreateDevice(devices[deviceIndex], &deviceCI, nullptr, &device) != VK_SUCCESS)
+    {
+        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create Vulkan device!" << END_ERROR << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    vkGetDeviceQueue(device, queueFamily, 0, &queue);
+
+    // setup VMA
+    VmaVulkanFunctions vkFunctions{
+        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+        .vkCreateImage = vkCreateImage};
+
+    VmaAllocatorCreateInfo allocatorCI{
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+        .physicalDevice = devices[deviceIndex],
+        .device = device,
+        .pVulkanFunctions = &vkFunctions,
+        .instance = instance};
+
+    if (vmaCreateAllocator(&allocatorCI, &allocator) != VK_SUCCESS)
+    {
+        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create VMA allocator!" << END_ERROR << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    SDL_Window* window{SDL_CreateWindow("SDL x Vulkan", 1280, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)};
 
     std::cout << "We ran!" << std::endl;
     return EXIT_SUCCESS;
