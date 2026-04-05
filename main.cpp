@@ -26,6 +26,7 @@ int main(int argc, char* argv[])
     VkDevice device{VK_NULL_HANDLE};
     VkQueue queue{VK_NULL_HANDLE};
     VmaAllocator allocator{VK_NULL_HANDLE};
+    VkSurfaceKHR surface{VK_NULL_HANDLE};
 
     if (!SDL_Init(SDL_INIT_VIDEO))
     {
@@ -192,7 +193,11 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
+    // setup SDL window and surfaces
     SDL_Window* window{SDL_CreateWindow("SDL x Vulkan", 1280, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)};
+    if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface))
+    {
+    }
 
     std::cout << "We ran!" << std::endl;
     return EXIT_SUCCESS;
