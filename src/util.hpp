@@ -11,17 +11,29 @@
 #define BEGIN_ERROR "\033[41m"
 #define END_ERROR "\033[m"
 
-namespace Util
-{
-    inline void check(VkResult result)
-    {
-        if (result != VK_SUCCESS)
-        {
-            std::cerr << BEGIN_ERROR << "Vulkan call return error (" << result << ")" << END_ERROR << std::endl;
-            exit(result);
-        }
+#define VK_CHECK(func)                                                                                                 \
+    {                                                                                                                  \
+        const VkResult result{func};                                                                                   \
+        if (result != VK_SUCCESS)                                                                                      \
+        {                                                                                                              \
+            std::cerr << BEGIN_ERROR << "Error calling function " << #func << " at " << __FILE__ << ":" << __LINE__    \
+                      << ". Result: (" << result << ")" << END_ERROR << std::endl;                                     \
+            assert(false);                                                                                             \
+        }                                                                                                              \
     }
 
+#define CHECK(func)                                                                                                    \
+    {                                                                                                                  \
+        if (!func)                                                                                                     \
+        {                                                                                                              \
+            std::cerr << BEGIN_ERROR << "Error calling function " << #func << " at " << __FILE__ << ":" << __LINE__    \
+                      << END_ERROR << std::endl;                                                                       \
+            assert(false);                                                                                             \
+        }                                                                                                              \
+    }
+
+namespace Util
+{
     inline void checkSwapchain(VkResult result, bool* updateSwapchain)
     {
         if (result < VK_SUCCESS)
@@ -33,15 +45,6 @@ namespace Util
             }
 
             std::cerr << BEGIN_ERROR << "Vulkan call return error (" << result << ")" << END_ERROR << std::endl;
-            exit(result);
-        }
-    }
-
-    inline void check(const bool result)
-    {
-        if (!result)
-        {
-            std::cerr << BEGIN_ERROR << "Call returned an error!" << END_ERROR << std::endl;
             exit(result);
         }
     }

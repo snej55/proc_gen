@@ -28,17 +28,9 @@ int main(int argc, char* argv[])
     VmaAllocator allocator{VK_NULL_HANDLE};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
 
-    if (!SDL_Init(SDL_INIT_VIDEO))
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to initialize SDL3!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
-
-    if (!SDL_Vulkan_LoadLibrary(nullptr))
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to load SDL vulkan library!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    // Initialize SDL
+    CHECK(SDL_Init(SDL_INIT_VIDEO));
+    CHECK(SDL_Vulkan_LoadLibrary(nullptr));
 
     volkInitialize();
 
@@ -68,26 +60,14 @@ int main(int argc, char* argv[])
         .pApplicationInfo = &appInfo,
         .enabledExtensionCount = static_cast<uint32_t>(extensions.size()),
         .ppEnabledExtensionNames = extensions.data()};
-    if (vkCreateInstance(&instanceCI, nullptr, &instance) != VK_SUCCESS)
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create Vulkan instance!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    VK_CHECK(vkCreateInstance(&instanceCI, nullptr, &instance));
     volkLoadInstance(instance);
 
     uint32_t deviceCount{0};
-    if (vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr) != VK_SUCCESS)
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to list available physical devices!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    VK_CHECK(vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr));
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
-    if (vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()) != VK_SUCCESS)
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to list available physical devices!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    VK_CHECK(vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data()));
 
     uint32_t deviceIndex{0};
     if (argc > 1)
@@ -114,12 +94,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    if (!SDL_Vulkan_GetPresentationSupport(instance, devices[deviceIndex], queueFamily))
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Selected device does not support presentation!" << END_ERROR
-                  << std::endl;
-        return EXIT_FAILURE;
-    }
+    CHECK(SDL_Vulkan_GetPresentationSupport(instance, devices[deviceIndex], queueFamily));
 
     const float qfpriorities{1.0f};
     VkDeviceQueueCreateInfo queueCI{
@@ -166,11 +141,7 @@ int main(int argc, char* argv[])
         .ppEnabledExtensionNames = deviceExtensions.data(),
         .pEnabledFeatures = &enabledVk10Features};
 
-    if (vkCreateDevice(devices[deviceIndex], &deviceCI, nullptr, &device) != VK_SUCCESS)
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create Vulkan device!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    VK_CHECK(vkCreateDevice(devices[deviceIndex], &deviceCI, nullptr, &device));
 
     vkGetDeviceQueue(device, queueFamily, 0, &queue);
 
@@ -187,17 +158,13 @@ int main(int argc, char* argv[])
         .pVulkanFunctions = &vkFunctions,
         .instance = instance};
 
-    if (vmaCreateAllocator(&allocatorCI, &allocator) != VK_SUCCESS)
-    {
-        std::cout << BEGIN_ERROR << "INIT::ERROR: Failed to create VMA allocator!" << END_ERROR << std::endl;
-        return EXIT_FAILURE;
-    }
+    VK_CHECK(vmaCreateAllocator(&allocatorCI, &allocator));
 
     // setup SDL window and surfaces
     SDL_Window* window{SDL_CreateWindow("SDL x Vulkan", 1280, 720, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)};
-    if (!SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface))
-    {
-    }
+    assert(window != nullptr);
+
+    CHECK(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
 
     std::cout << "We ran!" << std::endl;
     return EXIT_SUCCESS;
