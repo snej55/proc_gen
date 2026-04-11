@@ -7,6 +7,9 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS on)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(FetchContent)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
+
 set(NAME proc_gen)
 project(${NAME})
 
@@ -41,7 +44,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ktx)
 
-find_library(SDL_LIBRARY NAMES SDL3 HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+FetchContent_Declare(
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.4.4
+    GIT_SHALLOW ON
+)
+FetchContent_MakeAvailable(SDL3)
+
 find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
@@ -63,4 +73,4 @@ endif()
 
 set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(${NAME} PRIVATE cxx_std_20)
-target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan ${SDL_LIBRARY} ktx ${Slang_LIBRARY} glm::glm)
+target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan SDL3::SDL3 ktx ${Slang_LIBRARY} glm::glm)
