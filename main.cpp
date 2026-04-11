@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <vector>
+#include <array>
 
 #define VOLK_IMPLEMENTATION
 #include <vulkan/vulkan.h>
@@ -27,6 +28,16 @@ int main(int argc, char* argv[])
     VkQueue queue{VK_NULL_HANDLE};
     VmaAllocator allocator{VK_NULL_HANDLE};
     VkSurfaceKHR surface{VK_NULL_HANDLE};
+    glm::ivec2 windowSize{0, 0};
+
+    bool updateSwapchain{false};
+    VkSwapchainKHR swapchain{VK_NULL_HANDLE};
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+
+    VkImage depthImage;
+    VmaAllocation depthImageAllocation;
+    VkImageView depthImageView;
 
     // Initialize SDL
     CHECK(SDL_Init(SDL_INIT_VIDEO));
@@ -165,6 +176,80 @@ int main(int argc, char* argv[])
     assert(window != nullptr);
 
     CHECK(SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface));
+    CHECK(SDL_GetWindowSize(window, &windowSize.x, &windowSize.y));
+
+    VkSurfaceCapabilitiesKHR surfaceCaps{};
+    VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(devices[deviceIndex], surface, &surfaceCaps));
+
+    VkExtent2D swapchainExtent{surfaceCaps.currentExtent};
+    if (surfaceCaps.currentExtent.width == 0xFFFFFFFF)
+    {
+        swapchainExtent = {.width = static_cast<uint32_t>(windowSize.x), .height = static_cast<uint32_t>(windowSize.y)};
+    }
+
+    constexpr VkFormat imageFormat{VK_FORMAT_B8G8R8_SRGB};
+    VkSwapchainCreateInfoKHR swapchainCI{
+        .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+        .surface = surface,
+        .minImageCount = surfaceCaps.minImageCount,
+        .imageFormat = imageFormat,
+        .imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR,
+        .imageExtent{.width = swapchainExtent.width, .height = swapchainExtent.height},
+        .imageArrayLayers = 1,
+        .imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+        .compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+        .presentMode = VK_PRESENT_MODE_FIFO_KHR};
+
+    VK_CHECK(vkCreateSwapchainKHR(device, &swapchainCI, nullptr, &swapchain));
+
+    uint32_t imageCount{0};
+    VK_CHECK(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, nullptr));
+    swapchainImages.resize(imageCount);
+    VK_CHECK(vkGetSwapchainImagesKHR(device, swapchain, &imageCount, swapchainImages.data()));
+    swapchainImageViews.resize(imageCount);
+
+    for (std::size_t i{0}; i < imageCount; ++i)
+    {
+        VkImageViewCreateInfo viewCI{
+            .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .image = swapchainImages[i],
+            .viewType = VK_IMAGE_VIEW_TYPE_2D,
+            .format = imageFormat,
+            .subresourceRange{.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT, .levelCount = 1, .layerCount = 1}};
+        VK_CHECK(vkCreateImageView(device, &viewCI, nullptr, &swapchainImageViews[i]));
+    }
+
+    constexpr std::array<VkFormat, 2> depthFormatList{VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+    VkFormat depthFormat{VK_FORMAT_UNDEFINED};
+    for (const VkFormat& format : depthFormatList)
+    {
+        VkFormatProperties2 formatProperties{.sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2};
+        vkGetPhysicalDeviceFormatProperties2(devices[deviceIndex], format, &formatProperties);
+        if (formatProperties.formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT)
+        {
+            depthFormat = format;
+            break;
+        }
+    }
+
+    assert(depthFormat != VK_FORMAT_UNDEFINED);
+    VkImageCreateInfo depthImageCI{
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+        .imageType = VK_IMAGE_TYPE_2D,
+        .format = depthFormat,
+        .extent{.width = static_cast<uint32_t>(windowSize.x), .height = static_cast<uint32_t>(windowSize.y)},
+        .mipLevels = 1,
+        .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT,
+        .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED};
+
+    VmaAllocationCreateInfo allocCI{
+        .flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, .usage = VMA_MEMORY_USAGE_AUTO};
+
+    VK_CHECK(vmaCreateImage(allocator, &depthImageCI, &allocCI, &depthImage, &depthImageAllocation, nullptr));
 
     std::cout << "We ran!" << std::endl;
     return EXIT_SUCCESS;
