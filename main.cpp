@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <vector>
 #include <algorithm>
+#include <functional>
 
 #include "src/constants.hpp"
 #include "src/util.hpp"
@@ -61,8 +62,10 @@ private:
     // vulkan initialization
     void initVulkan()
     {
+        // initialize volk
         volkInitialize();
 
+        // get validation layers and extensions
         std::vector<std::string> validationLayers{};
 #ifdef _DEBUG
         validationLayers.emplace_back("VK_LAYER_KHRONOS_validation");
@@ -95,7 +98,28 @@ private:
             std::cout << "\t" << extension << std::endl;
         }
 #endif
-        createInstance();
+
+        std::vector<const char*> instanceLayers(m_enabledLayers.size());
+        std::transform(m_enabledLayers.begin(), m_enabledLayers.end(), instanceLayers.begin(), std::mem_fn(&std::string::c_str));
+
+        std::vector<const char*> instanceExtensions(m_enabledInstanceExtensions.size());
+        std::transform(m_enabledInstanceExtensions.begin(), m_enabledInstanceExtensions.end(), instanceExtensions.begin(), std::mem_fn(&std::string::c_str));
+
+        // create Vulkan instance
+        const VkApplicationInfo appInfo{
+            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "Vulkan Window", .applicationVersion = VK_MAKE_VERSION(1, 0, 0), .apiVersion = VK_API_VERSION_1_3};
+
+        const VkInstanceCreateInfo instanceCI{
+            .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .pApplicationInfo = &appInfo,
+            .enabledLayerCount = static_cast<uint32_t>(instanceLayers.size()),
+            .ppEnabledLayerNames = instanceLayers.data(),
+            .enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size()),
+            .ppEnabledExtensionNames = instanceExtensions.data()};
+
+        VK_CHECK(vkCreateInstance(&instanceCI, nullptr, &m_instance));
+
+        std::cout << "Initialized vulkan!" << std::endl;
     }
 
     std::vector<std::string> enumerateInstanceLayers()
@@ -136,31 +160,6 @@ private:
         }
 #endif
         return availableExtensions;
-    }
-
-    void createInstance()
-    {
-        VkApplicationInfo appInfo{
-            .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-            .pApplicationName = "Hello Triangle",
-            .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-            .pEngineName = "No Engine",
-            .engineVersion = VK_MAKE_VERSION(1, 0, 0),
-            .apiVersion = VK_API_VERSION_1_4};
-
-        VkInstanceCreateInfo createInfo{.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO, .pApplicationInfo = &appInfo};
-
-        uint32_t glfwExtensionCount{0};
-        const char** glfwExtensions;
-
-        glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-        createInfo.enabledExtensionCount = glfwExtensionCount;
-        createInfo.ppEnabledExtensionNames = glfwExtensions;
-
-        createInfo.enabledLayerCount = 0;
-
-        VK_CHECK(vkCreateInstance(&createInfo, nullptr, &m_instance));
     }
 
     void mainLoop()
