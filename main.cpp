@@ -38,7 +38,7 @@ private:
     GLFWwindow* m_window{nullptr};
 
     // --------- Vulkan components --------- //
-    std::unordered_set<std::string> m_enabledLayers{};
+    std::unordered_set<std::string> m_enabledInstanceLayers{};
     std::unordered_set<std::string> m_enabledInstanceExtensions{};
 
     VkDebugUtilsMessengerEXT m_debugMessenger{VK_NULL_HANDLE};
@@ -88,12 +88,12 @@ private:
 
         requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
 
-        m_enabledLayers = Util::filterExtensions(enumerateInstanceLayers(), validationLayers);
+        m_enabledInstanceLayers = Util::filterExtensions(enumerateInstanceLayers(), validationLayers);
         m_enabledInstanceExtensions = Util::filterExtensions(enumerateInstanceExtensions(), requiredExtensions);
 
 #ifdef _DEBUG
         std::cout << "Enabled layers: " << std::endl;
-        for (const std::string& layer : m_enabledLayers)
+        for (const std::string& layer : m_enabledInstanceLayers)
         {
             std::cout << "\t" << layer << std::endl;
         }
@@ -105,8 +105,8 @@ private:
         }
 #endif
 
-        std::vector<const char*> instanceLayers(m_enabledLayers.size());
-        std::transform(m_enabledLayers.begin(), m_enabledLayers.end(), instanceLayers.begin(), std::mem_fn(&std::string::c_str));
+        std::vector<const char*> instanceLayers(m_enabledInstanceLayers.size());
+        std::transform(m_enabledInstanceLayers.begin(), m_enabledInstanceLayers.end(), instanceLayers.begin(), std::mem_fn(&std::string::c_str));
 
         std::vector<const char*> instanceExtensions(m_enabledInstanceExtensions.size());
         std::transform(m_enabledInstanceExtensions.begin(), m_enabledInstanceExtensions.end(), instanceExtensions.begin(), std::mem_fn(&std::string::c_str));
@@ -211,7 +211,16 @@ private:
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
     {
-        std::cerr << BEGIN_LOG << "Validation layer: " << pCallbackData->pMessage << END_LOG << std::endl;
+        std::string colorCode{BEGIN_LOG};
+        if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+        {
+            colorCode = BEGIN_ERROR;
+        }
+        else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
+        {
+            colorCode = BEGIN_WARNING;
+        }
+        std::cerr << colorCode << "Validation layer: " << pCallbackData->pMessage << END_LOG << std::endl;
         return VK_FALSE;
     }
 

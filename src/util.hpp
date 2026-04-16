@@ -13,8 +13,11 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
+// color codes for logging
 #define BEGIN_ERROR "\033[41m"
 #define END_ERROR "\033[m"
+#define BEGIN_WARNING "\033[33m"
+#define END_WARNING "\033[m"
 #define BEGIN_LOG "\033[36m"
 #define END_LOG "\033[m"
 
