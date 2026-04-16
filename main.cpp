@@ -12,11 +12,17 @@
 #include <vector>
 #include <algorithm>
 #include <functional>
+#include <optional>
 
 #include "src/constants.hpp"
 #include "src/util.hpp"
 
 #define _DEBUG
+
+struct QueueFamilyIndices
+{
+    std::optional<uint32_t> graphicsQueue;
+};
 
 class App
 {
@@ -44,6 +50,7 @@ private:
     VkDebugUtilsMessengerEXT m_debugMessenger{VK_NULL_HANDLE};
 
     VkInstance m_instance{VK_NULL_HANDLE};
+    VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};
 
     // initialize GLFW
     void initWindow()
@@ -140,6 +147,7 @@ private:
         VK_CHECK(vkCreateDebugUtilsMessengerEXT(m_instance, &debugCI, nullptr, &m_debugMessenger));
 #endif
 
+        selectPhysicalDevice();
         std::cout << "Initialized vulkan!" << std::endl;
     }
 
@@ -183,28 +191,42 @@ private:
         return availableExtensions;
     }
 
-    void mainLoop()
+    [[nodiscard]] bool deviceSuitable(VkPhysicalDevice device) const
     {
-        glfwPollEvents();
-    /*        while (!glfwWindowShouldClose(m_window))
-            {
-                glfwPollEvents();
-            }
-    */    }
+        VkPhysicalDeviceProperties deviceProperties;
+        VkPhysicalDeviceFeatures deviceFeatures;
 
-    // cleanup resources
-    void free()
+        vkGetPhysicalDeviceProperties(device, &deviceProperties);
+        vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+        return deviceFeatures.geometryShader;
+    }
+
+    void selectPhysicalDevice()
     {
-#ifdef _DEBUG
-        if (m_debugMessenger != VK_NULL_HANDLE)
+        uint32_t physicalDeviceCount{0};
+        VK_CHECK(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr));
+        CHECK((physicalDeviceCount != 0));
+        std::vector<VkPhysicalDevice> physicalDevices(physicalDeviceCount);
+        VK_CHECK(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, physicalDevices.data()));
+
+        for (const VkPhysicalDevice& device : physicalDevices)
         {
-            vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+            if (deviceSuitable(device))
+            {
+                m_physicalDevice = device;
+                break;
+            }
         }
+
+        CHECK((m_physicalDevice != VK_NULL_HANDLE));
+
+#ifdef _DEBUG
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(m_physicalDevice, &deviceProperties);
+        std::cout << "Selected physical device:" << std::endl;
+        std::cout << "\t" << deviceProperties.deviceName << std::endl;
 #endif
-        vkDestroyInstance(m_instance, nullptr);
-        glfwDestroyWindow(m_window);
-        glfwTerminate();
-        std::cout << "Cleaned up!" << std::endl;
     }
 
     // Debug callback
@@ -231,6 +253,31 @@ private:
         createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
         createInfo.pfnUserCallback = debugCallback;
         createInfo.pUserData = nullptr;
+    }
+
+    void mainLoop()
+    {
+        glfwPollEvents();
+        /*        while (!glfwWindowShouldClose(m_window))
+                {
+                    glfwPollEvents();
+                }
+        */
+    }
+
+    // cleanup resources
+    void free()
+    {
+#ifdef _DEBUG
+        if (m_debugMessenger != VK_NULL_HANDLE)
+        {
+            vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+        }
+#endif
+        vkDestroyInstance(m_instance, nullptr);
+        glfwDestroyWindow(m_window);
+        glfwTerminate();
+        std::cout << "Cleaned up!" << std::endl;
     }
 };
 

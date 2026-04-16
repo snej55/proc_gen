@@ -40,6 +40,12 @@
         }                                                                                                                                                                                              \
     }
 
+#define CRASHOUT()                                                                                                                                                                                     \
+    {                                                                                                                                                                                                  \
+        std::cerr << BEGIN_ERROR << "Crashed out at " << __FILE__ << ":" << __LINE__ << END_ERROR << std::endl;                                                                                        \
+        assert(false);                                                                                                                                                                                 \
+    }
+
 namespace Util
 {
     inline void checkSwapchain(VkResult result, bool* updateSwapchain)
