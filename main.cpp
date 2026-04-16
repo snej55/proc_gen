@@ -41,6 +41,8 @@ private:
     std::unordered_set<std::string> m_enabledLayers{};
     std::unordered_set<std::string> m_enabledInstanceExtensions{};
 
+    VkDebugUtilsMessengerEXT m_debugMessenger{VK_NULL_HANDLE};
+
     VkInstance m_instance{VK_NULL_HANDLE};
 
     // initialize GLFW
@@ -71,19 +73,23 @@ private:
         validationLayers.emplace_back("VK_LAYER_KHRONOS_validation");
 #endif
 
-        std::vector<std::string> requestedInstanceExtensions{
-#if defined(VK_KHR_win32_surface)
-            VK_KHR_WIN32_SURFACE_EXTENSION_NAME,
+        uint32_t glfwExtensionCount{0};
+        const char** glfwExtensions{glfwGetRequiredInstanceExtensions(&glfwExtensionCount)};
+
+        std::vector<std::string> requiredExtensions(static_cast<std::size_t>(glfwExtensionCount));
+        for (std::size_t i{0}; i < static_cast<std::size_t>(glfwExtensionCount); ++i)
+        {
+            requiredExtensions[i] = glfwExtensions[i];
+        }
+
+#ifdef _DEBUG
+        requiredExtensions.emplace_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 #endif
-#if defined(VK_EXT_debug_utils)
-            VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-#endif
-#if defined(VK_KHR_surface)
-            VK_KHR_SURFACE_EXTENSION_NAME,
-#endif
-        };
+
+        requiredExtensions.emplace_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+
         m_enabledLayers = Util::filterExtensions(enumerateInstanceLayers(), validationLayers);
-        m_enabledInstanceExtensions = Util::filterExtensions(enumerateInstanceExtensions(), requestedInstanceExtensions);
+        m_enabledInstanceExtensions = Util::filterExtensions(enumerateInstanceExtensions(), requiredExtensions);
 
 #ifdef _DEBUG
         std::cout << "Enabled layers: " << std::endl;
@@ -105,11 +111,10 @@ private:
         std::vector<const char*> instanceExtensions(m_enabledInstanceExtensions.size());
         std::transform(m_enabledInstanceExtensions.begin(), m_enabledInstanceExtensions.end(), instanceExtensions.begin(), std::mem_fn(&std::string::c_str));
 
-        // create Vulkan instance
         const VkApplicationInfo appInfo{
             .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "Vulkan Window", .applicationVersion = VK_MAKE_VERSION(1, 0, 0), .apiVersion = VK_API_VERSION_1_3};
 
-        const VkInstanceCreateInfo instanceCI{
+        VkInstanceCreateInfo instanceCI{
             .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .pApplicationInfo = &appInfo,
             .enabledLayerCount = static_cast<uint32_t>(instanceLayers.size()),
@@ -117,7 +122,23 @@ private:
             .enabledExtensionCount = static_cast<uint32_t>(instanceExtensions.size()),
             .ppEnabledExtensionNames = instanceExtensions.data()};
 
+        VkDebugUtilsMessengerCreateInfoEXT debugCI{};
+#ifdef _DEBUG
+        setupDebugMessenger(debugCI);
+        instanceCI.pNext = &debugCI;
+#else
+        instanceCI.pNext = nullptr;
+#endif
+
+        instanceCI.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+
         VK_CHECK(vkCreateInstance(&instanceCI, nullptr, &m_instance));
+
+        volkLoadInstance(m_instance);
+
+#ifdef _DEBUG
+        VK_CHECK(vkCreateDebugUtilsMessengerEXT(m_instance, &debugCI, nullptr, &m_debugMessenger));
+#endif
 
         std::cout << "Initialized vulkan!" << std::endl;
     }
@@ -164,17 +185,43 @@ private:
 
     void mainLoop()
     {
-        while (!glfwWindowShouldClose(m_window))
-        {
-            glfwPollEvents();
-        }
-    }
+        glfwPollEvents();
+    /*        while (!glfwWindowShouldClose(m_window))
+            {
+                glfwPollEvents();
+            }
+    */    }
 
     // cleanup resources
     void free()
     {
+#ifdef _DEBUG
+        if (m_debugMessenger != VK_NULL_HANDLE)
+        {
+            vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
+        }
+#endif
+        vkDestroyInstance(m_instance, nullptr);
         glfwDestroyWindow(m_window);
         glfwTerminate();
+        std::cout << "Cleaned up!" << std::endl;
+    }
+
+    // Debug callback
+    static VKAPI_ATTR VkBool32 VKAPI_CALL
+    debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+    {
+        std::cerr << BEGIN_LOG << "Validation layer: " << pCallbackData->pMessage << END_LOG << std::endl;
+        return VK_FALSE;
+    }
+
+    void setupDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
+    {
+        createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+        createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+        createInfo.pfnUserCallback = debugCallback;
+        createInfo.pUserData = nullptr;
     }
 };
 

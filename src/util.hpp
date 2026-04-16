@@ -15,6 +15,8 @@
 
 #define BEGIN_ERROR "\033[41m"
 #define END_ERROR "\033[m"
+#define BEGIN_LOG "\033[36m"
+#define END_LOG "\033[m"
 
 #define VK_CHECK(func)                                                                                                                                                                                 \
     {                                                                                                                                                                                                  \
@@ -60,6 +62,18 @@ namespace Util
         std::vector<std::string> result{};
         std::set_intersection(availableExtensions.begin(), availableExtensions.end(), requestedExtensions.begin(), requestedExtensions.end(), std::back_inserter(result));
         return std::unordered_set<std::string>(result.begin(), result.end());
+    }
+
+    inline std::unordered_set<std::string> filterExtensions(std::vector<std::string> availableExtensions, const char** requestedExtensions, const uint32_t requestedExtensionsCount)
+    {
+        // convert to std::vector<std::string> first
+        std::vector<std::string> requestedExtensionsVec(static_cast<std::size_t>(requestedExtensionsCount));
+        for (std::size_t i{0}; i < static_cast<std::size_t>(requestedExtensionsCount); ++i)
+        {
+            requestedExtensionsVec[i] = std::string(requestedExtensions[i]);
+        }
+
+        return filterExtensions(availableExtensions, requestedExtensionsVec);
     }
 } // namespace Util
 
