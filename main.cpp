@@ -14,6 +14,7 @@
 #include <functional>
 #include <optional>
 #include <set>
+#include <limits>
 
 #include "src/constants.hpp"
 #include "src/util.hpp"
@@ -26,6 +27,13 @@ struct QueueFamilyIndices
     std::optional<uint32_t> presentFamily;
 
     bool complete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
+};
+
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> presentModes;
 };
 
 class App
@@ -226,7 +234,14 @@ private:
         QueueFamilyIndices indices{findQueueFamilies(device)};
 
         const bool extensionsSupported(checkDeviceExtensionsSupport(device));
-        return indices.complete() && extensionsSupported;
+
+        bool swapChainValid{false};
+        if (extensionsSupported)
+        {
+            SwapChainSupportDetails details{checkSwapChainSupport(device)};
+            swapChainValid = !details.formats.empty() && !details.presentModes.empty();
+        }
+        return indices.complete() && extensionsSupported && swapChainValid;
     }
 
     [[nodiscard]] bool checkDeviceExtensionsSupport(VkPhysicalDevice device) const
@@ -245,6 +260,87 @@ private:
         }
 
         return requiredExtensions.empty();
+    }
+
+    void createSwapChain()
+    {
+        SwapChainSupportDetails details{checkSwapChainSupport(m_physicalDevice)};
+
+        VkSurfaceFormatKHR surfaceFormat{selectSwapChainSurfaceFormat(details.formats)};
+        VkPresentModeKHR presentMode{selectSwapChainPresentMode(details.presentModes)};
+        VkExtent2D extent{selectSwapExtent(details.capabilities)};
+
+        uint32_t imageCount{details.capabilities.minImageCount + 1};
+    }
+
+    [[nodiscard]] SwapChainSupportDetails checkSwapChainSupport(VkPhysicalDevice device) const
+    {
+        SwapChainSupportDetails details;
+
+        VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, m_surface, &details.capabilities));
+
+        uint32_t formatCount;
+        VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, nullptr));
+
+        if (formatCount != 0)
+        {
+            details.formats.resize(formatCount);
+            VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(device, m_surface, &formatCount, details.formats.data()));
+        }
+
+        uint32_t presentModeCount;
+        VK_CHECK(vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, nullptr));
+
+        if (presentModeCount != 0)
+        {
+            details.presentModes.resize(presentModeCount);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(device, m_surface, &presentModeCount, details.presentModes.data());
+        }
+
+        return details;
+    }
+
+    [[nodiscard]] VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats)
+    {
+        for (const VkSurfaceFormatKHR& format : formats)
+        {
+            if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+            {
+                return format;
+            }
+        }
+
+        // first one is usually fine
+        return formats[0];
+    }
+
+    [[nodiscard]] VkPresentModeKHR selectSwapChainPresentMode(const std::vector<VkPresentModeKHR>& presentModes) const
+    {
+        for (const VkPresentModeKHR& presentMode : presentModes)
+        {
+            if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) // ooh yea we like triple buffering
+            {
+                return presentMode;
+            }
+        }
+        return VK_PRESENT_MODE_FIFO_KHR; // only one guaranteed to be available
+    }
+
+    [[nodiscard]] VkExtent2D selectSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities) const
+    {
+        if (capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max())
+        {
+            return capabilities.currentExtent;
+        }
+        int width, height;
+        glfwGetFramebufferSize(m_window, &width, &height);
+
+        VkExtent2D extent{static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
+
+        extent.width = std::clamp(extent.width, capabilities.minImageExtent.width, capabilities.maxImageExtent.width);
+        extent.height = std::clamp(extent.height, capabilities.minImageExtent.height, capabilities.maxImageExtent.height);
+
+        return extent;
     }
 
     void selectPhysicalDevice()
