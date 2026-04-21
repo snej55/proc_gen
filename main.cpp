@@ -67,6 +67,7 @@ private:
     VkDevice m_device{VK_NULL_HANDLE};
     VkQueue m_graphicsQueue{VK_NULL_HANDLE};
     VkQueue m_presentQueue{VK_NULL_HANDLE};
+    VkSwapchainKHR m_swapChain{VK_NULL_HANDLE};
 
     // initialize GLFW
     void initWindow()
@@ -98,6 +99,8 @@ private:
         selectPhysicalDevice();
         createLogicalDevice();
         volkLoadDevice(m_device);
+
+        createSwapChain();
 
         std::cout << "Initialized vulkan!" << std::endl;
     }
@@ -271,6 +274,48 @@ private:
         VkExtent2D extent{selectSwapExtent(details.capabilities)};
 
         uint32_t imageCount{details.capabilities.minImageCount + 1};
+        if (details.capabilities.maxImageCount > 0 && imageCount > details.capabilities.maxImageCount)
+        {
+            imageCount = details.capabilities.maxImageCount;
+        }
+
+        VkSwapchainCreateInfoKHR createInfo{};
+        createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+        createInfo.surface = m_surface;
+        // image details
+        createInfo.minImageCount = imageCount;
+        createInfo.imageFormat = surfaceFormat.format;
+        createInfo.imageColorSpace = surfaceFormat.colorSpace;
+        createInfo.imageExtent = extent;
+        createInfo.imageArrayLayers = 1; // amount of layers each image has
+        createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+        QueueFamilyIndices indices{findQueueFamilies(m_physicalDevice)};
+        // must survive longer so not in condition scope
+        uint32_t queueFamilyIndices[]{indices.graphicsFamily.value(), indices.presentFamily.value()};
+
+        if (indices.graphicsFamily != indices.presentFamily)
+        {
+            createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+            createInfo.queueFamilyIndexCount = 2;
+            createInfo.pQueueFamilyIndices = queueFamilyIndices;
+        }
+        else
+        {
+            createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+            createInfo.queueFamilyIndexCount = 0;
+            createInfo.pQueueFamilyIndices = nullptr;
+        }
+
+        createInfo.preTransform = details.capabilities.currentTransform;
+        createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+        createInfo.presentMode = presentMode;
+        createInfo.clipped = VK_TRUE;
+        createInfo.oldSwapchain = VK_NULL_HANDLE;
+
+        VK_CHECK(vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain));
+
+        std::cout << "Created swap chain: " << extent.width << " * " << extent.height << std::endl;
     }
 
     [[nodiscard]] SwapChainSupportDetails checkSwapChainSupport(VkPhysicalDevice device) const
@@ -496,6 +541,7 @@ private:
             vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
         }
 #endif
+        vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
         vkDestroyDevice(m_device, nullptr);
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkDestroyInstance(m_instance, nullptr);
