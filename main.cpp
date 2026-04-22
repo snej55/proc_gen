@@ -4,10 +4,14 @@
 #include <vulkan/vulkan.h>
 #include <volk/volk.h>
 
+#define VMA_IMPLEMENTATION
+#include <vma/vk_mem_alloc.h>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include <iostream>
+#include <fmt/base.h>
+
 #include <cstdlib>
 #include <vector>
 #include <algorithm>
@@ -68,6 +72,9 @@ private:
     VkQueue m_graphicsQueue{VK_NULL_HANDLE};
     VkQueue m_presentQueue{VK_NULL_HANDLE};
     VkSwapchainKHR m_swapChain{VK_NULL_HANDLE};
+    std::vector<VkImage> m_swapChainImages{};
+    VkFormat m_swapChainImageFormat{};
+    VkExtent2D m_swapChainExtent{};
 
     // initialize GLFW
     void initWindow()
@@ -98,7 +105,6 @@ private:
 
         selectPhysicalDevice();
         createLogicalDevice();
-        volkLoadDevice(m_device);
 
         createSwapChain();
 
@@ -316,6 +322,13 @@ private:
         VK_CHECK(vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain));
 
         std::cout << "Created swap chain: " << extent.width << " * " << extent.height << std::endl;
+
+        VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, nullptr));
+        m_swapChainImages.resize(imageCount);
+        VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, m_swapChainImages.data()));
+
+        m_swapChainImageFormat = surfaceFormat.format;
+        m_swapChainExtent = extent;
     }
 
     [[nodiscard]] SwapChainSupportDetails checkSwapChainSupport(VkPhysicalDevice device) const
@@ -469,11 +482,16 @@ private:
             queueCreateInfos.push_back(queueCI);
         }
 
+        VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
+        features13.dynamicRendering = VK_TRUE;
+        features13.synchronization2 = VK_TRUE;
+
         VkPhysicalDeviceFeatures deviceFeatures{};
 
         // actual logical device
         VkDeviceCreateInfo createInfo{
             .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .pNext = &features13,
             .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
             .pQueueCreateInfos = queueCreateInfos.data(),
             .pEnabledFeatures = &deviceFeatures};
@@ -491,6 +509,8 @@ private:
 
         std::cout << "Creating logical device..." << std::endl;
         VK_CHECK(vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device));
+        volkLoadDevice(m_device);
+
         vkGetDeviceQueue(m_device, indices.graphicsFamily.value(), 0, &m_graphicsQueue);
         vkGetDeviceQueue(m_device, indices.presentFamily.value(), 0, &m_presentQueue);
     }

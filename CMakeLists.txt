@@ -62,13 +62,10 @@ FetchContent_MakeAvailable(glfw)
 find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 FetchContent_Declare(
-    fetch_vk_bootstrap
-    GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap
-    GIT_TAG v1.4.349
-    GIT_SHALLOW ON
-    SYSTEM
-)
-FetchContent_MakeAvailable(fetch_vk_bootstrap)
+  fmt
+  GIT_REPOSITORY https://github.com/fmtlib/fmt
+  GIT_TAG 12.1.0) # 10.2.1
+FetchContent_MakeAvailable(fmt)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
 
@@ -89,4 +86,4 @@ endif()
 
 set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(${NAME} PRIVATE cxx_std_20)
-target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan glfw vk-bootstrap::vk-bootstrap ktx ${Slang_LIBRARY} glm::glm)
+target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt glfw ktx ${Slang_LIBRARY} glm::glm)
