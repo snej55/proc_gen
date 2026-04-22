@@ -4,11 +4,13 @@
 #define UTIL_H
 
 #include <cstdlib>
-#include <iostream>
 #include <cassert>
+#include <string>
 #include <unordered_set>
 #include <vector>
 #include <algorithm>
+
+#include <fmt/base.h>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -26,7 +28,7 @@
         const VkResult result{func};                                                                                                                                                                   \
         if (result != VK_SUCCESS)                                                                                                                                                                      \
         {                                                                                                                                                                                              \
-            std::cerr << BEGIN_ERROR << "Error calling function " << #func << " at " << __FILE__ << ":" << __LINE__ << ". Result: (" << result << ")" << END_ERROR << std::endl;                       \
+            fmt::print(stderr, "{}{}: Error calling function {} at {}:{}. Result: ({}){}\n", BEGIN_ERROR, "FATAL", #func, __FILE__, __LINE__, (int)result, END_ERROR);                                 \
             assert(false);                                                                                                                                                                             \
         }                                                                                                                                                                                              \
     }
@@ -35,14 +37,14 @@
     {                                                                                                                                                                                                  \
         if (!func)                                                                                                                                                                                     \
         {                                                                                                                                                                                              \
-            std::cerr << BEGIN_ERROR << "Error calling function " << #func << " at " << __FILE__ << ":" << __LINE__ << END_ERROR << std::endl;                                                         \
+            fmt::print(stderr, "{}Error calling function {} at {}:{}{}\n", BEGIN_ERROR, #func, __FILE__, __LINE__, END_ERROR);                                                                         \
             assert(false);                                                                                                                                                                             \
         }                                                                                                                                                                                              \
     }
 
 #define CRASHOUT()                                                                                                                                                                                     \
     {                                                                                                                                                                                                  \
-        std::cerr << BEGIN_ERROR << "Crashed out at " << __FILE__ << ":" << __LINE__ << END_ERROR << std::endl;                                                                                        \
+        fmt::print(stderr, "{}Crashed out at {}:{}{}\n", BEGIN_ERROR, __FILE__, __LINE__, END_ERROR);                                                                                                  \
         assert(false);                                                                                                                                                                                 \
     }
 
@@ -58,7 +60,7 @@ namespace Util
                 return;
             }
 
-            std::cerr << BEGIN_ERROR << "Vulkan call return error (" << result << ")" << END_ERROR << std::endl;
+            fmt::print(stderr, "{}Vulkan call return error ({}){}\n", BEGIN_ERROR, static_cast<int>(result), END_ERROR);
             exit(result);
         }
     }

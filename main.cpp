@@ -87,7 +87,7 @@ private:
         m_window = glfwCreateWindow(CST::WIDTH, CST::HEIGHT, "Vulkan Window", nullptr, nullptr);
         if (m_window == nullptr)
         {
-            std::cout << BEGIN_ERROR << "APP::INIT_WINDOW::ERROR: Error creating glfw window!" << END_ERROR << std::endl;
+            fmt::print(stderr, "{}APP::INIT_WINDOW::ERROR: Error creating glfw window!{}\n", BEGIN_ERROR, END_ERROR);
             exit(-1);
         }
     }
@@ -95,20 +95,20 @@ private:
     // vulkan initialization
     void initVulkan()
     {
-        std::cout << "Initializing vulkan..." << std::endl;
+        fmt::println("Initializing vulkan...");
         // initialize volk
         volkInitialize();
 
         createInstance();
-        std::cout << "Created instance..." << std::endl;
-        createSurface();
+        fmt::println("Created instance...");
 
+        createSurface();
         selectPhysicalDevice();
         createLogicalDevice();
 
         createSwapChain();
 
-        std::cout << "Initialized vulkan!" << std::endl;
+        fmt::println("Initialized vulkan!");
     }
 
     void createInstance()
@@ -142,16 +142,16 @@ private:
         m_enabledInstanceExtensions = Util::filterExtensions(enumerateInstanceExtensions(), requiredExtensions);
 
 #ifdef _DEBUG
-        std::cout << "Enabled layers: " << std::endl;
+        fmt::print("Enabled layers: \n");
         for (const std::string& layer : m_enabledInstanceLayers)
         {
-            std::cout << "\t" << layer << std::endl;
+            fmt::print("\t{}\n", layer);
         }
 
-        std::cout << "Enabled extensions: " << std::endl;
+        fmt::print("Enabled extensions: \n");
         for (const std::string& extension : m_enabledInstanceExtensions)
         {
-            std::cout << "\t" << extension << std::endl;
+            fmt::println("\t{}", extension);
         }
 #endif
 
@@ -202,10 +202,10 @@ private:
         std::transform(layers.begin(), layers.end(), std::back_inserter(availableLayers), [](const VkLayerProperties& properties) { return properties.layerName; });
 
 #ifdef _DEBUG
-        std::cout << "Found " << instanceLayerCount << " available layers(s)" << std::endl;
+        fmt::println("Found {} available layer(s):", instanceLayerCount);
         for (const std::string& layer : availableLayers)
         {
-            std::cout << "\t" << layer << std::endl;
+            fmt::println("\t{}", layer);
         }
 #endif
         return availableLayers;
@@ -222,10 +222,10 @@ private:
         std::transform(extensions.begin(), extensions.end(), std::back_inserter(availableExtensions), [](const VkExtensionProperties& properties) { return properties.extensionName; });
 
 #ifdef _DEBUG
-        std::cout << "Found " << instanceExtensionCount << " available extension(s)" << std::endl;
+        fmt::println("Found {} available extension(s):", instanceExtensionCount);
         for (const std::string& extension : availableExtensions)
         {
-            std::cout << "\t" << extension << std::endl;
+            fmt::println("\t{}", extension);
         }
 #endif
         return availableExtensions;
@@ -233,13 +233,13 @@ private:
 
     void createSurface()
     {
-        std::cout << "Created surface..." << std::endl;
+        fmt::println("Created surface...");
         VK_CHECK(glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface));
     }
 
     [[nodiscard]] bool deviceSuitable(VkPhysicalDevice device) const
     {
-        std::cout << "Checking if device is suitable..." << std::endl;
+        fmt::println("Checking if device is suitable...");
         QueueFamilyIndices indices{findQueueFamilies(device)};
 
         const bool extensionsSupported(checkDeviceExtensionsSupport(device));
@@ -321,7 +321,7 @@ private:
 
         VK_CHECK(vkCreateSwapchainKHR(m_device, &createInfo, nullptr, &m_swapChain));
 
-        std::cout << "Created swap chain: " << extent.width << " * " << extent.height << std::endl;
+        fmt::println("Created swap chain: {} * {}", extent.width, extent.height);
 
         VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapChain, &imageCount, nullptr));
         m_swapChainImages.resize(imageCount);
@@ -403,7 +403,7 @@ private:
 
     void selectPhysicalDevice()
     {
-        std::cout << "Selecting physical device..." << std::endl;
+        fmt::println("Selecting physical device...");
         uint32_t physicalDeviceCount{0};
         VK_CHECK(vkEnumeratePhysicalDevices(m_instance, &physicalDeviceCount, nullptr));
         CHECK((physicalDeviceCount != 0));
@@ -424,8 +424,8 @@ private:
 #ifdef _DEBUG
         VkPhysicalDeviceProperties deviceProperties;
         vkGetPhysicalDeviceProperties(m_physicalDevice, &deviceProperties);
-        std::cout << "Selected physical device:" << std::endl;
-        std::cout << "\t" << deviceProperties.deviceName << std::endl;
+        fmt::println("Selected physical device: ");
+        fmt::println("\t{}", deviceProperties.deviceName);
 #endif
     }
 
@@ -438,7 +438,7 @@ private:
         std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
         vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
 
-        std::cout << "Got queue families..." << std::endl;
+        fmt::println("Got queue families...");
 
         int i{0};
         for (const VkQueueFamilyProperties& queueFamily : queueFamilies)
@@ -447,15 +447,17 @@ private:
             {
                 indices.graphicsFamily = i;
             }
-            std::cout << "Checked graphics bit..." << std::endl;
+            fmt::println("Checked graphics bit...");
 
+            // NOTE: Gives seg fault if surface hasn't been created yet
             VkBool32 presentSupport{false};
             vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &presentSupport);
             if (presentSupport)
             {
                 indices.presentFamily = i;
             }
-            std::cout << "Checked presentation support..." << std::endl;
+
+            fmt::println("Checked presentation support...");
 
             if (indices.complete())
             {
@@ -469,7 +471,7 @@ private:
 
     void createLogicalDevice()
     {
-        std::cout << "Creating logical device..." << std::endl;
+        fmt::println("Creating logical device...");
         QueueFamilyIndices indices{findQueueFamilies(m_physicalDevice)};
 
         std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
@@ -507,7 +509,6 @@ private:
         createInfo.enabledLayerCount = 0;
 #endif
 
-        std::cout << "Creating logical device..." << std::endl;
         VK_CHECK(vkCreateDevice(m_physicalDevice, &createInfo, nullptr, &m_device));
         volkLoadDevice(m_device);
 
@@ -528,7 +529,8 @@ private:
         {
             colorCode = BEGIN_WARNING;
         }
-        std::cerr << colorCode << "Validation layer: " << pCallbackData->pMessage << END_LOG << std::endl;
+
+        fmt::println(stderr, "{}Validation layer: {}{}", colorCode, pCallbackData->pMessage, END_LOG);
         return VK_FALSE;
     }
 
@@ -567,7 +569,7 @@ private:
         vkDestroyInstance(m_instance, nullptr);
         glfwDestroyWindow(m_window);
         glfwTerminate();
-        std::cout << "Cleaned up!" << std::endl;
+        fmt::println("Cleaned up!");
     }
 };
 
@@ -581,11 +583,11 @@ int main()
     }
     catch (std::exception& e)
     {
-        std::cerr << e.what() << std::endl;
+        fmt::println("{}", e.what());
         return EXIT_FAILURE;
     }
 
-    std::cout << "We ran!" << std::endl;
+    fmt::println("We ran!");
 
     return EXIT_SUCCESS;
 }
