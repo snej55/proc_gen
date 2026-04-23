@@ -69,7 +69,7 @@ FetchContent_MakeAvailable(fmt)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
 
-set(SOURCES main.cpp)
+set(SOURCES main.cpp src/constants.hpp src/util.hpp src/context.hpp src/context.cpp src/vulkan_impl.cpp)
 
 add_executable(${NAME} ${SOURCES})
 

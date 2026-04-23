@@ -1,15 +1,5 @@
 // Created by Jens Kromdijk 05/04/2026
 
-#define VOLK_IMPLEMENTATION
-#include <vulkan/vulkan.h>
-#include <volk/volk.h>
-
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
-
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
 #include <fmt/base.h>
 
 #include <cstdlib>
@@ -24,21 +14,7 @@
 #include "src/util.hpp"
 
 #define _DEBUG
-
-struct QueueFamilyIndices
-{
-    std::optional<uint32_t> graphicsFamily;
-    std::optional<uint32_t> presentFamily;
-
-    bool complete() const { return graphicsFamily.has_value() && presentFamily.has_value(); }
-};
-
-struct SwapChainSupportDetails
-{
-    VkSurfaceCapabilitiesKHR capabilities;
-    std::vector<VkSurfaceFormatKHR> formats;
-    std::vector<VkPresentModeKHR> presentModes;
-};
+#include "src/context.hpp"
 
 class App
 {
@@ -75,6 +51,7 @@ private:
     std::vector<VkImage> m_swapChainImages{};
     VkFormat m_swapChainImageFormat{};
     VkExtent2D m_swapChainExtent{};
+    std::vector<VkImageView> m_swapChainImageViews{};
 
     // initialize GLFW
     void initWindow()
@@ -87,7 +64,7 @@ private:
         m_window = glfwCreateWindow(CST::WIDTH, CST::HEIGHT, "Vulkan Window", nullptr, nullptr);
         if (m_window == nullptr)
         {
-            fmt::print(stderr, "{}APP::INIT_WINDOW::ERROR: Error creating glfw window!{}\n", BEGIN_ERROR, END_ERROR);
+            fmt::print(stderr, "{}APP::INIT_WINDOW:ERROR: Error creating glfw window!{}\n", BEGIN_ERROR, END_ERROR);
             exit(-1);
         }
     }
@@ -96,6 +73,7 @@ private:
     void initVulkan()
     {
         fmt::println("Initializing vulkan...");
+
         // initialize volk
         volkInitialize();
 
@@ -107,6 +85,7 @@ private:
         createLogicalDevice();
 
         createSwapChain();
+        createImageViews();
 
         fmt::println("Initialized vulkan!");
     }
@@ -401,6 +380,51 @@ private:
         return extent;
     }
 
+    void createImageViews()
+    {
+        m_swapChainImageViews.resize(m_swapChainImages.size());
+        for (std::size_t i{0}; i < m_swapChainImageViews.size(); ++i)
+        {
+            VkImageViewCreateInfo createInfo{};
+            createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+            createInfo.image = m_swapChainImages[i];
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+
+            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+
+            VK_CHECK(vkCreateImageView(m_device, &createInfo, nullptr, &m_swapChainImageViews[i]));
+        }
+        fmt::println("Created {} image views...", m_swapChainImageViews.size());
+    }
+
+    void freeSwapChain()
+    {
+        for (VkImageView imageView : m_swapChainImageViews)
+        {
+            vkDestroyImageView(m_device, imageView, nullptr);
+        }
+        vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
+    }
+
+    void recreateSwapChain()
+    {
+        vkDeviceWaitIdle(m_device);
+
+        freeSwapChain();
+
+        createSwapChain();
+        createImageViews();
+    }
+
     void selectPhysicalDevice()
     {
         fmt::println("Selecting physical device...");
@@ -443,7 +467,7 @@ private:
         int i{0};
         for (const VkQueueFamilyProperties& queueFamily : queueFamilies)
         {
-            if (queueFamily.queueFlags | VK_QUEUE_GRAPHICS_BIT)
+            if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
             {
                 indices.graphicsFamily = i;
             }
@@ -563,7 +587,8 @@ private:
             vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
         }
 #endif
-        vkDestroySwapchainKHR(m_device, m_swapChain, nullptr);
+        freeSwapChain();
+
         vkDestroyDevice(m_device, nullptr);
         vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
         vkDestroyInstance(m_instance, nullptr);
