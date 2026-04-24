@@ -8,8 +8,8 @@
 
 #include <vma/vk_mem_alloc.h>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <SDL3/SDL.h>
+#include <SDL3/SDL_vulkan.h>
 
 #include <fmt/base.h>
 
@@ -41,7 +41,7 @@ public:
 
     void init();
 
-    [[nodiscard]] GLFWwindow* getWindow() { return m_window; }
+    [[nodiscard]] SDL_Window* getWindow() { return m_window; }
 
     [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceLayers() const { return m_enabledInstanceLayers; }
     [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceExtensions() const { return m_enabledInstanceExtensions; }
@@ -65,7 +65,7 @@ public:
     [[nodiscard]] bool getInit() const { return m_init; }
 
 private:
-    GLFWwindow* m_window{nullptr};
+    SDL_Window* m_window{nullptr};
 
     // --------- Vulkan components --------- //
     std::unordered_set<std::string> m_enabledInstanceLayers{};

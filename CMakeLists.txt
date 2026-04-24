@@ -44,21 +44,16 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ktx)
 
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE) 
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-
+set(SDL_X11_XTEST OFF)
 FetchContent_Declare(
-    glfw
-    GIT_REPOSITORY https://github.com/glfw/glfw.git
-    GIT_TAG 3.4
+    SDL3
+    GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+    GIT_TAG release-3.4.4
     GIT_SHALLOW ON
-    SYSTEM
 )
+FetchContent_MakeAvailable(SDL3)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-FetchContent_MakeAvailable(glfw)
 find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
 
 FetchContent_Declare(
@@ -69,7 +64,7 @@ FetchContent_MakeAvailable(fmt)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
 
-set(SOURCES main.cpp src/constants.hpp src/util.hpp src/context.hpp src/context.cpp src/vulkan_impl.cpp)
+set(SOURCES main.cpp src/constants.hpp src/util.hpp src/context.hpp src/context.cpp src/vulkan_impl.cpp src/engine.hpp src/engine.cpp)
 
 add_executable(${NAME} ${SOURCES})
 
@@ -86,4 +81,4 @@ endif()
 
 set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_features(${NAME} PRIVATE cxx_std_20)
-target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt glfw ktx ${Slang_LIBRARY} glm::glm)
+target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx ${Slang_LIBRARY} glm::glm)

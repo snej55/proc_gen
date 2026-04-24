@@ -21,18 +21,11 @@ void Context::init()
 
 void Context::initWindow()
 {
+    CHECK(SDL_Init(SDL_INIT_VIDEO));
+    SDL_WindowFlags windowFlags{SDL_WINDOW_VULKAN};
 
-    glfwInit();
-
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
-    m_window = glfwCreateWindow(CST::WIDTH, CST::HEIGHT, "Vulkan Window", nullptr, nullptr);
-    if (m_window == nullptr)
-    {
-        fmt::print(stderr, "{}APP::INIT_WINDOW::ERROR: Error creating glfw window!{}\n", BEGIN_ERROR, END_ERROR);
-        exit(-1);
-    }
+    m_window = SDL_CreateWindow("Vulkan Window", CST::WIDTH, CST::HEIGHT, windowFlags);
+    CHECK((m_window != nullptr));
 }
 
 void Context::initVulkan()
@@ -60,13 +53,13 @@ void Context::createInstance()
     }
 #endif
 
-    uint32_t glfwExtensionCount{0};
-    const char** glfwExtensions{glfwGetRequiredInstanceExtensions(&glfwExtensionCount)};
+    uint32_t sdlExtensionCount{0};
+    char const* const* sdlExtensions{SDL_Vulkan_GetInstanceExtensions(&sdlExtensionCount)};
 
-    std::vector<std::string> requiredExtensions(static_cast<std::size_t>(glfwExtensionCount));
-    for (std::size_t i{0}; i < static_cast<std::size_t>(glfwExtensionCount); ++i)
+    std::vector<std::string> requiredExtensions(static_cast<std::size_t>(sdlExtensionCount));
+    for (std::size_t i{0}; i < static_cast<std::size_t>(sdlExtensionCount); ++i)
     {
-        requiredExtensions[i] = glfwExtensions[i];
+        requiredExtensions[i] = std::string(sdlExtensions[i]);
     }
 
 #ifdef _DEBUG
@@ -129,7 +122,7 @@ void Context::createInstance()
 
 void Context::createSurface()
 {
-    VK_CHECK(glfwCreateWindowSurface(m_instance, m_window, nullptr, &m_surface));
+    CHECK(SDL_Vulkan_CreateSurface(m_window, m_instance, nullptr, &m_surface));
     fmt::println("Created surface");
 }
 
@@ -286,8 +279,7 @@ void Context::free()
     vkDestroySurfaceKHR(m_instance, m_surface, nullptr);
     vkDestroyInstance(m_instance, nullptr);
 
-    glfwDestroyWindow(m_window);
-    glfwTerminate();
+    SDL_DestroyWindow(m_window);
 
     fmt::println("Cleaned up!");
 }
@@ -471,7 +463,7 @@ void Context::free()
         return capabilities.currentExtent;
     }
     int width, height;
-    glfwGetFramebufferSize(m_window, &width, &height);
+    SDL_GetWindowSize(m_window, &width, &height);
 
     VkExtent2D extent{static_cast<uint32_t>(width), static_cast<uint32_t>(height)};
 
