@@ -14,6 +14,8 @@ int main()
     try
     {
         engine.init();
+        engine.run();
+        engine.free();
     }
     catch (std::exception& e)
     {

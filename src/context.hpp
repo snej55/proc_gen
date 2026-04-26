@@ -40,6 +40,7 @@ public:
     ~Context() = default;
 
     void init();
+    void free();
 
     [[nodiscard]] SDL_Window* getWindow() { return m_window; }
 
@@ -99,8 +100,6 @@ private:
     void createLogicalDevice();
 
     void createSwapchain();
-
-    void free();
 
     [[nodiscard]] std::vector<std::string> enumerateInstanceLayers();
     [[nodiscard]] std::vector<std::string> enumerateInstanceExtensions();

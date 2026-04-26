@@ -157,7 +157,6 @@ void Context::selectPhysicalDevice()
 
 void Context::createLogicalDevice()
 {
-
     fmt::println("Creating logical device...");
     QueueFamilyIndices indices{findQueueFamilies(m_physicalDevice)};
 
@@ -175,12 +174,17 @@ void Context::createLogicalDevice()
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
 
+    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES};
+    features12.bufferDeviceAddress = VK_TRUE;
+    features12.descriptorIndexing = VK_TRUE;
+    features12.pNext = &features13;
+
     VkPhysicalDeviceFeatures deviceFeatures{};
 
     // actual logical device
     VkDeviceCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext = &features13,
+        .pNext = &features12,
         .queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size()),
         .pQueueCreateInfos = queueCreateInfos.data(),
         .pEnabledFeatures = &deviceFeatures};

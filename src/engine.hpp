@@ -15,7 +15,9 @@ public:
 
     void init();
 
-    void update();
+    void run();
+
+    void free();
 
     [[nodiscard]] bool getInit() const { return m_init; }
     [[nodiscard]] Context* getContext() { return m_context.get(); }
@@ -23,6 +25,8 @@ public:
 private:
     bool m_init{false};
     std::unique_ptr<Context> m_context{nullptr};
+
+    void draw();
 };
 
 #endif
