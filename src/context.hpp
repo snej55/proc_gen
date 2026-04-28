@@ -17,6 +17,7 @@
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <array>
 
 struct QueueFamilyIndices
 {
@@ -32,6 +33,14 @@ struct SwapChainSupportDetails
     std::vector<VkSurfaceFormatKHR> formats;
     std::vector<VkPresentModeKHR> presentModes;
 };
+
+struct FrameData
+{
+    VkCommandPool m_commandPool;
+    VkCommandBuffer m_commandBuffer;
+};
+
+constexpr unsigned int FRAME_OVERLAP{2};
 
 class Context
 {
@@ -63,6 +72,8 @@ public:
     [[nodiscard]] VkExtent2D& getSwapchainExtent() { return m_swapchainExtent; }
     [[nodiscard]] const std::vector<VkImageView>& getSwapchainImageViews() const { return m_swapchainImageViews; }
 
+    [[nodiscard]] FrameData& getCurrentFrame() { return m_frames[m_frameNumber % FRAME_OVERLAP]; }
+
     [[nodiscard]] bool getInit() const { return m_init; }
 
 private:
@@ -78,6 +89,7 @@ private:
     VkSurfaceKHR m_surface{VK_NULL_HANDLE};
     VkPhysicalDevice m_physicalDevice{VK_NULL_HANDLE};
     VkDevice m_device{VK_NULL_HANDLE};
+    QueueFamilyIndices m_queueFamilyIndices;
     VkQueue m_graphicsQueue{VK_NULL_HANDLE};
     VkQueue m_presentQueue{VK_NULL_HANDLE};
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
@@ -85,6 +97,9 @@ private:
     VkFormat m_swapchainImageFormat{};
     VkExtent2D m_swapchainExtent{};
     std::vector<VkImageView> m_swapchainImageViews{};
+
+    std::array<FrameData, FRAME_OVERLAP> m_frames;
+    std::size_t m_frameNumber{0};
 
     bool m_init{false};
 
@@ -117,6 +132,9 @@ private:
     void createImageViews();
     void freeSwapchain();
     void recreateSwapchain();
+
+    // setup command structures
+    void initCommands();
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);

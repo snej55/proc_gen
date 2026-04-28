@@ -11,9 +11,12 @@
 #include <algorithm>
 
 #include <fmt/base.h>
+#include <fmt/format.h>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
+
+#include "engine_types.hpp"
 
 // color codes for logging
 #define BEGIN_ERROR "\033[41m"
@@ -29,7 +32,9 @@
         if (result != VK_SUCCESS)                                                                                                                                                                      \
         {                                                                                                                                                                                              \
             fmt::print(stderr, "{}{}: Error calling function {} at {}:{}. Result: ({}){}\n", BEGIN_ERROR, "FATAL", #func, __FILE__, __LINE__, (int)result, END_ERROR);                                 \
-            assert(false);                                                                                                                                                                             \
+            const std::string msg{fmt::format("{}{}: Error calling function {} at {}:{}. Result: ({}){}\n", BEGIN_ERROR, "FATAL", #func, __FILE__, __LINE__, (int)result, END_ERROR)};                 \
+            const EngineResult error{nullptr, -1, result, nullptr};                                                                                                                                    \
+            throw EngineException(error, msg);                                                                                                                                                         \
         }                                                                                                                                                                                              \
     }
 
@@ -38,31 +43,33 @@
         if (!func)                                                                                                                                                                                     \
         {                                                                                                                                                                                              \
             fmt::print(stderr, "{}Error calling function {} at {}:{}{}\n", BEGIN_ERROR, #func, __FILE__, __LINE__, END_ERROR);                                                                         \
-            assert(false);                                                                                                                                                                             \
+            const std::string msg{fmt::format("{}Error calling function {} at {}:{}{}\n", BEGIN_ERROR, #func, __FILE__, __LINE__, END_ERROR)};                                                         \
+            throw EngineException(EngineResult{nullptr, -1, VK_SUCCESS, nullptr}, msg);                                                                                                                \
         }                                                                                                                                                                                              \
     }
 
 #define CRASHOUT()                                                                                                                                                                                     \
     {                                                                                                                                                                                                  \
         fmt::print(stderr, "{}Crashed out at {}:{}{}\n", BEGIN_ERROR, __FILE__, __LINE__, END_ERROR);                                                                                                  \
-        assert(false);                                                                                                                                                                                 \
+        throw EngineException(EngineResult{nullptr, -1, VK_SUCCESS, nullptr}, fmt::format("{}Crashed out at {}:{}{}\n", BEGIN_ERROR, __FILE__, __LINE__, END_ERROR));                                  \
     }
 
 namespace Util
 {
-    inline void checkSwapchain(VkResult result, bool* updateSwapchain)
+    inline bool checkSwapchain(VkResult result, bool* updateSwapchain)
     {
         if (result < VK_SUCCESS)
         {
             if (result == VK_ERROR_OUT_OF_DATE_KHR)
             {
                 *updateSwapchain = true;
-                return;
+                return true;
             }
 
             fmt::print(stderr, "{}Vulkan call return error ({}){}\n", BEGIN_ERROR, static_cast<int>(result), END_ERROR);
-            exit(result);
+            return false;
         }
+        return true;
     }
 
     inline std::unordered_set<std::string> filterExtensions(std::vector<std::string> availableExtensions, std::vector<std::string> requestedExtensions)

@@ -335,6 +335,7 @@ void Context::free()
 
     fmt::println("Checking if device is suitable...");
     QueueFamilyIndices indices{findQueueFamilies(device)};
+    m_queueFamilyIndices = indices;
 
     const bool extensionsSupported(checkDeviceExtensionsSupport(device));
 
@@ -521,6 +522,29 @@ void Context::recreateSwapchain()
 
     createSwapchain();
     createImageViews();
+}
+
+void Context::initCommands()
+{
+    VkCommandPoolCreateInfo commandCI{};
+    commandCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    commandCI.pNext = nullptr;
+    commandCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    commandCI.queueFamilyIndex = m_queueFamilyIndices.graphicsFamily.value();
+
+    for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
+    {
+        VK_CHECK(vkCreateCommandPool(m_device, &commandCI, nullptr, &m_frames[i].m_commandPool));
+
+        VkCommandBufferAllocateInfo cmdAllocInfo{};
+        cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        cmdAllocInfo.pNext = nullptr;
+        cmdAllocInfo.commandPool = m_frames[i].m_commandPool;
+        cmdAllocInfo.commandBufferCount = 1;
+        cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+        VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_frames[i].m_commandBuffer));
+    }
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL
