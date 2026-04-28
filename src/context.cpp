@@ -1,8 +1,8 @@
 // Created by Jens Kromdijk 23/04/2026
 
-#include "context.hpp"
-#include "constants.hpp"
-#include "util.hpp"
+#include "context.h"
+#include "constants.h"
+#include "util.h"
 
 #include <cstdlib>
 #include <functional>
@@ -159,6 +159,7 @@ void Context::createLogicalDevice()
 {
     fmt::println("Creating logical device...");
     QueueFamilyIndices indices{findQueueFamilies(m_physicalDevice)};
+    m_queueFamilyIndices = indices;
 
     std::vector<VkDeviceQueueCreateInfo> queueCreateInfos{};
     std::set<uint32_t> uniqueQueueFamiles{indices.graphicsFamily.value(), indices.presentFamily.value()};
@@ -335,7 +336,6 @@ void Context::free()
 
     fmt::println("Checking if device is suitable...");
     QueueFamilyIndices indices{findQueueFamilies(device)};
-    m_queueFamilyIndices = indices;
 
     const bool extensionsSupported(checkDeviceExtensionsSupport(device));
 

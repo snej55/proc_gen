@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 #define _DEBUG
-#include "src/engine.hpp"
+#include "src/engine.h"
 
 int main()
 {

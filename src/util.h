@@ -16,7 +16,7 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 
-#include "engine_types.hpp"
+#include "engine_types.h"
 
 // color codes for logging
 #define BEGIN_ERROR "\033[41m"
