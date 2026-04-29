@@ -1,6 +1,7 @@
 // Created by Jens Kromdijk 23/04/2026
 
 #include "context.h"
+#include "vk_init.h"
 #include "constants.h"
 #include "util.h"
 
@@ -39,6 +40,9 @@ void Context::initVulkan()
 
     createSwapchain();
     createImageViews();
+
+    initCommands();
+    initSyncStructures();
 }
 
 void Context::createInstance()
@@ -271,12 +275,19 @@ void Context::createSwapchain()
 
 void Context::free()
 {
+    vkDeviceWaitIdle(m_device);
 #ifdef _DEBUG
     if (m_debugMessenger != VK_NULL_HANDLE)
     {
         vkDestroyDebugUtilsMessengerEXT(m_instance, m_debugMessenger, nullptr);
     }
 #endif
+
+    // destroy command pools
+    for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
+    {
+        vkDestroyCommandPool(m_device, m_frames[i].m_commandPool, nullptr);
+    }
 
     freeSwapchain();
 
@@ -527,23 +538,32 @@ void Context::recreateSwapchain()
 void Context::initCommands()
 {
     VkCommandPoolCreateInfo commandCI{};
-    commandCI.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    commandCI.pNext = nullptr;
-    commandCI.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    commandCI.queueFamilyIndex = m_queueFamilyIndices.graphicsFamily.value();
+    VkInitN::commandPoolCreateInfo(&commandCI, m_queueFamilyIndices.graphicsFamily.value());
 
     for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
     {
         VK_CHECK(vkCreateCommandPool(m_device, &commandCI, nullptr, &m_frames[i].m_commandPool));
 
         VkCommandBufferAllocateInfo cmdAllocInfo{};
-        cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        cmdAllocInfo.pNext = nullptr;
-        cmdAllocInfo.commandPool = m_frames[i].m_commandPool;
-        cmdAllocInfo.commandBufferCount = 1;
-        cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        VkInitN::commandBufferAllocInfo(&cmdAllocInfo, m_frames[i].m_commandPool, 1);
 
         VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_frames[i].m_commandBuffer));
+    }
+}
+
+void Context::initSyncStructures()
+{
+    VkFenceCreateInfo fenceCI{};
+    VkInitN::fenceCreateInfo(&fenceCI, VK_FENCE_CREATE_SIGNALED_BIT);
+    VkSemaphoreCreateInfo semaphoreCI{};
+    VkInitN::semaphoreCreateInfo(&semaphoreCI, 0);
+
+    for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
+    {
+        VK_CHECK(vkCreateFence(m_device, &fenceCI, nullptr, &m_frames[i].m_renderFence));
+
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_swapchainSemaphore));
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_renderSemaphore));
     }
 }
 

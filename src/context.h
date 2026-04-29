@@ -3,6 +3,8 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+#define _DEBUG
+
 #include <vulkan/vulkan.h>
 #include <volk/volk.h>
 
@@ -38,6 +40,9 @@ struct FrameData
 {
     VkCommandPool m_commandPool;
     VkCommandBuffer m_commandBuffer;
+    VkSemaphore m_swapchainSemaphore;
+    VkSemaphore m_renderSemaphore;
+    VkFence m_renderFence;
 };
 
 constexpr unsigned int FRAME_OVERLAP{2};
@@ -135,6 +140,9 @@ private:
 
     // setup command structures
     void initCommands();
+
+    // setup sync structures
+    void initSyncStructures();
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
