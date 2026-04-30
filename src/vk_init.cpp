@@ -41,3 +41,48 @@ void VkInitN::commandBufferBeginInfo(VkCommandBufferBeginInfo* cmdBufferCI, VkCo
     cmdBufferCI->pInheritanceInfo = nullptr;
     cmdBufferCI->flags = flags;
 }
+
+void VkInitN::semaphoreSubmitInfo(VkSemaphoreSubmitInfo* info, VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+{
+    info->sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    info->pNext = nullptr;
+    info->semaphore = semaphore;
+    info->stageMask = stageMask;
+    info->deviceIndex = 0;
+    info->value = 1;
+}
+
+void VkInitN::commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommandBuffer cmd)
+{
+    info->sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
+    info->pNext = nullptr;
+    info->commandBuffer = cmd;
+    info->deviceMask = 0;
+}
+
+void VkInitN::submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+{
+    info->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
+    info->pNext = nullptr;
+
+    info->waitSemaphoreInfoCount = waitSemaphoreInfo == nullptr ? 0 : 1;
+    info->pWaitSemaphoreInfos = waitSemaphoreInfo;
+
+    info->signalSemaphoreInfoCount = signalSemaphoreInfo == nullptr ? 0 : 1;
+    info->pSignalSemaphoreInfos = signalSemaphoreInfo;
+
+    info->commandBufferInfoCount = 1;
+    info->pCommandBufferInfos = cmd;
+}
+
+VkImageSubresourceRange VkInitN::imageSubresourceRange(VkImageAspectFlags aspectMask)
+{
+    VkImageSubresourceRange subImage{};
+    subImage.aspectMask = aspectMask;
+    subImage.baseMipLevel = 0;
+    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
+    subImage.baseArrayLayer = 0;
+    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+
+    return subImage;
+}

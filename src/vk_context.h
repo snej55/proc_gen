@@ -78,6 +78,8 @@ public:
     [[nodiscard]] const std::vector<VkImageView>& getSwapchainImageViews() const { return m_swapchainImageViews; }
 
     [[nodiscard]] FrameData& getCurrentFrame() { return m_frames[m_frameNumber % FRAME_OVERLAP]; }
+    void tickFrame() { ++m_frameNumber; }
+    [[nodiscard]] std::size_t getFrameNumber() const { return m_frameNumber; }
 
     [[nodiscard]] bool getInit() const { return m_init; }
 

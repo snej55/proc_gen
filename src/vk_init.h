@@ -16,6 +16,14 @@ namespace VkInitN
     void semaphoreCreateInfo(VkSemaphoreCreateInfo* semaphoreCI, VkSemaphoreCreateFlags flags);
 
     void commandBufferBeginInfo(VkCommandBufferBeginInfo* cmdBufferCI, VkCommandBufferUsageFlags flags);
+
+    void semaphoreSubmitInfo(VkSemaphoreSubmitInfo* info, VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
+
+    void commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommandBuffer cmd);
+
+    void submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo);
+
+    VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags aspectMask);
 }; // namespace VkInitN
 
 #endif // VK_INIT_H

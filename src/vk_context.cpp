@@ -1,6 +1,6 @@
 // Created by Jens Kromdijk 23/04/2026
 
-#include "context.h"
+#include "vk_context.h"
 #include "vk_init.h"
 #include "constants.h"
 #include "util.h"
@@ -175,11 +175,12 @@ void Context::createLogicalDevice()
         queueCreateInfos.push_back(queueCI);
     }
 
+    // TODO: Validate feature support
     VkPhysicalDeviceVulkan13Features features13{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES};
     features13.dynamicRendering = VK_TRUE;
     features13.synchronization2 = VK_TRUE;
 
-    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES};
+    VkPhysicalDeviceVulkan12Features features12{.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES};
     features12.bufferDeviceAddress = VK_TRUE;
     features12.descriptorIndexing = VK_TRUE;
     features12.pNext = &features13;
@@ -214,7 +215,6 @@ void Context::createLogicalDevice()
 
 void Context::createSwapchain()
 {
-
     SwapChainSupportDetails details{checkSwapchainSupport(m_physicalDevice)};
 
     VkSurfaceFormatKHR surfaceFormat{selectSwapchainSurfaceFormat(details.formats)};
@@ -236,7 +236,7 @@ void Context::createSwapchain()
     createInfo.imageColorSpace = surfaceFormat.colorSpace;
     createInfo.imageExtent = extent;
     createInfo.imageArrayLayers = 1; // amount of layers each image has
-    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     QueueFamilyIndices indices{findQueueFamilies(m_physicalDevice)};
     // must survive longer so not in condition scope
@@ -283,10 +283,14 @@ void Context::free()
     }
 #endif
 
-    // destroy command pools
+    // clean up sync structures (as well as command pool ofc)
     for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
     {
         vkDestroyCommandPool(m_device, m_frames[i].m_commandPool, nullptr);
+
+        vkDestroyFence(m_device, m_frames[i].m_renderFence, nullptr);
+        vkDestroySemaphore(m_device, m_frames[i].m_renderSemaphore, nullptr);
+        vkDestroySemaphore(m_device, m_frames[i].m_swapchainSemaphore, nullptr);
     }
 
     freeSwapchain();
@@ -380,6 +384,7 @@ void Context::free()
 
 [[nodiscard]] QueueFamilyIndices Context::findQueueFamilies(VkPhysicalDevice device) const
 {
+    // TODO: Check if physical device supports Vulkan 1.3
     QueueFamilyIndices indices;
 
     uint32_t queueFamilyCount{0};
