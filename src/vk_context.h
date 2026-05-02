@@ -18,6 +18,7 @@
 #include <string>
 #include <unordered_set>
 #include <array>
+#include <span>
 
 #include "engine_types.h"
 
@@ -53,6 +54,33 @@ struct AllocatedImage
     VmaAllocation m_allocation;
     VkExtent3D m_extent;
     VkFormat m_imageFormat;
+};
+
+struct DescriptorLayoutBuilder
+{
+    std::vector<VkDescriptorSetLayoutBinding> m_bindings;
+
+    void addBinding(uint32_t binding, VkDescriptorType type);
+    void clear();
+
+    [[nodiscard]] VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+};
+
+struct DescriptorAllocator
+{
+    struct PoolSizeRatio
+    {
+        VkDescriptorType type;
+        float ratio;
+    };
+
+    VkDescriptorPool m_pool;
+
+    void initPool(VkDevice device, uint32_t maxSets, std::span<PoolSizeRatio> poolRatios);
+    void clearDescriptors(VkDevice device);
+    void destroyPool(VkDevice device);
+
+    [[nodiscard]] VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout);
 };
 
 constexpr unsigned int FRAME_OVERLAP{2};
