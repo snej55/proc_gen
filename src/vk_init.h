@@ -24,6 +24,10 @@ namespace VkInitN
     void submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo);
 
     VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags aspectMask);
+
+    void imageCreateInfo(VkImageCreateInfo* info, VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
+    void imageViewCreateInfo(VkImageViewCreateInfo* info, VkFormat format, VkImage image, VkImageAspectFlags flags);
 }; // namespace VkInitN
 
 #endif // VK_INIT_H

@@ -4,8 +4,29 @@
 #define ENGINE_TYPES_H
 
 #include <stdexcept>
+#include <deque>
+#include <functional>
 
 #include <vulkan/vulkan.h>
+
+struct DeletionQueue
+{
+    std::deque<std::function<void()>> m_deletors;
+
+    void push_function(std::function<void()>&& function)
+    {
+        m_deletors.push_back(function);
+    }
+
+    void flush()
+    {
+        for (auto it {m_deletors.begin()}; it != m_deletors.end(); ++it)
+        {
+            (*it)();
+        }
+        m_deletors.clear();
+    }
+};
 
 struct EngineResult
 {

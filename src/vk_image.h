@@ -8,6 +8,8 @@
 namespace VkImageN
 {
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout);
+
+    void copyImage2Image(VkCommandBuffer cmd, VkImage source, VkImage dest, VkExtent2D srcSize, VkExtent2D dstSize);
 }
 
 #endif // VK_IMAGE_H

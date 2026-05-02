@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.24)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_EXPORT_COMPILE_COMMANDS on)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 include(FetchContent)
@@ -80,5 +80,6 @@ if(MSVC)
 endif()
 
 set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+set_target_properties(${NAME} PROPERTIES UNITY_BUILD ON)
 target_compile_features(${NAME} PRIVATE cxx_std_20)
 target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx ${Slang_LIBRARY} glm::glm)

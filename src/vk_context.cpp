@@ -4,6 +4,7 @@
 #include "vk_init.h"
 #include "constants.h"
 #include "util.h"
+#include "vk_image.h"
 
 #include <cstdlib>
 #include <functional>
@@ -18,6 +19,83 @@ void Context::init()
     initVulkan();
 
     m_init = true;
+}
+
+void Context::draw()
+{
+    // make sure everything is finished
+    // timeout is in nanoseconds
+    VK_CHECK(vkWaitForFences(m_device, 1, &getCurrentFrame().m_renderFence, true, 1e+9));
+    VK_CHECK(vkResetFences(m_device, 1, &getCurrentFrame().m_renderFence));
+
+    uint32_t swapchainImageIndex;
+    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1e+9, getCurrentFrame().m_swapchainSemaphore, nullptr, &swapchainImageIndex));
+
+    VkCommandBuffer cmd{getCurrentFrame().m_commandBuffer};
+    // reset the command buffer
+    VK_CHECK(vkResetCommandBuffer(cmd, 0));
+
+    // begin recording
+    VkCommandBufferBeginInfo cmdBeginInfo{};
+    VkInitN::commandBufferBeginInfo(&cmdBeginInfo, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+
+    m_drawExtent.width = m_drawImage.m_extent.width;
+    m_drawExtent.height = m_drawImage.m_extent.height;
+
+    // start the actual recording :)
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    VkImageN::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+    // clear image
+    drawBackground(cmd);
+
+    // make it into presentable mode
+    VkImageN::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    VkImageN::transitionImage(cmd, m_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+    VkImageN::copyImage2Image(cmd, m_drawImage.m_image, m_swapchainImages[swapchainImageIndex], m_drawExtent, m_swapchainExtent);
+
+    VkImageN::transitionImage(cmd, m_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    // finish command buffer (can be executed now)
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    // prepare queue submission
+    VkCommandBufferSubmitInfo cmdInfo{};
+    VkInitN::commandBufferSubmitInfo(&cmdInfo, cmd);
+
+    VkSemaphoreSubmitInfo waitInfo{};
+    VkInitN::semaphoreSubmitInfo(&waitInfo, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, getCurrentFrame().m_swapchainSemaphore);
+    VkSemaphoreSubmitInfo signalInfo{};
+    VkInitN::semaphoreSubmitInfo(&signalInfo, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame().m_renderSemaphore);
+
+    VkSubmitInfo2 submit;
+    VkInitN::submitInfo(&submit, &cmdInfo, &signalInfo, &waitInfo);
+
+    VK_CHECK(vkQueueSubmit2(m_graphicsQueue, 1, &submit, getCurrentFrame().m_renderFence));
+
+    // present the actual image
+    VkPresentInfoKHR presentInfo{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
+    presentInfo.pNext = nullptr;
+    presentInfo.pSwapchains = &m_swapchain;
+    presentInfo.swapchainCount = 1;
+    presentInfo.pWaitSemaphores = &getCurrentFrame().m_renderSemaphore;
+    presentInfo.waitSemaphoreCount = 1;
+    presentInfo.pImageIndices = &swapchainImageIndex;
+
+    VK_CHECK(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
+    tickFrame();
+}
+
+void Context::drawBackground(VkCommandBuffer cmd)
+{
+    VkClearColorValue clearValue;
+    const float flash{std::abs(std::sin(static_cast<float>(getFrameNumber() / 120.f)))};
+    clearValue = {{0.0f, 0.0f, flash, 1.0f}};
+
+    VkImageSubresourceRange clearRange{VkInitN::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)};
+    vkCmdClearColorImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 }
 
 void Context::initWindow()
@@ -37,6 +115,8 @@ void Context::initVulkan()
     createSurface();
     selectPhysicalDevice();
     createLogicalDevice();
+
+    createAllocator();
 
     createSwapchain();
     createImageViews();
@@ -271,6 +351,50 @@ void Context::createSwapchain()
 
     m_swapchainImageFormat = surfaceFormat.format;
     m_swapchainExtent = extent;
+
+
+    m_drawImage.m_imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
+    const VkExtent3D drawImageExtent{extent.width, extent.height, 1};
+    m_drawImage.m_extent = drawImageExtent;
+
+    VkImageUsageFlags drawImageUsages{};
+    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+    drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
+    VkImageCreateInfo rimgInfo{};
+    VkInitN::imageCreateInfo(&rimgInfo, m_drawImage.m_imageFormat, drawImageUsages, drawImageExtent);
+
+    VmaAllocationCreateInfo rimgAllocInfo{};
+    rimgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    rimgAllocInfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vmaCreateImage(m_allocator, &rimgInfo, &rimgAllocInfo, &m_drawImage.m_image, &m_drawImage.m_allocation, nullptr);
+
+    VkImageViewCreateInfo imageViewCI{};
+    VkInitN::imageViewCreateInfo(&imageViewCI, m_drawImage.m_imageFormat, m_drawImage.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
+    VK_CHECK(vkCreateImageView(m_device, &imageViewCI, nullptr, &m_drawImage.m_imageView));
+
+    m_deletionQueue.push_function(
+        [&]()
+        {
+            vkDestroyImageView(m_device, m_drawImage.m_imageView, nullptr);
+            vmaDestroyImage(m_allocator, m_drawImage.m_image, m_drawImage.m_allocation);
+        });
+}
+
+void Context::createAllocator()
+{
+    VmaAllocatorCreateInfo allocatorCI{};
+    VmaVulkanFunctions vkFunctions{.vkGetInstanceProcAddr = vkGetInstanceProcAddr, .vkGetDeviceProcAddr = vkGetDeviceProcAddr, .vkCreateImage = vkCreateImage};
+    allocatorCI.physicalDevice = m_physicalDevice;
+    allocatorCI.device = m_device;
+    allocatorCI.instance = m_instance;
+    allocatorCI.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
+    allocatorCI.pVulkanFunctions = &vkFunctions;
+    vmaCreateAllocator(&allocatorCI, &m_allocator);
+
+    fmt::println("Created VMA allocator!");
 }
 
 void Context::free()
@@ -291,7 +415,11 @@ void Context::free()
         vkDestroyFence(m_device, m_frames[i].m_renderFence, nullptr);
         vkDestroySemaphore(m_device, m_frames[i].m_renderSemaphore, nullptr);
         vkDestroySemaphore(m_device, m_frames[i].m_swapchainSemaphore, nullptr);
+        m_frames[i].m_deletionQueue.flush();
     }
+    m_deletionQueue.flush();
+
+    vmaDestroyAllocator(m_allocator);
 
     freeSwapchain();
 
@@ -496,7 +624,6 @@ void Context::free()
 
 void Context::createImageViews()
 {
-
     m_swapchainImageViews.resize(m_swapchainImages.size());
     for (std::size_t i{0}; i < m_swapchainImageViews.size(); ++i)
     {
@@ -570,6 +697,12 @@ void Context::initSyncStructures()
         VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_swapchainSemaphore));
         VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_renderSemaphore));
     }
+}
+
+void Context::tickFrame()
+{
+    ++m_frameNumber;
+    getFrameDeletionQueue().flush();
 }
 
 VKAPI_ATTR VkBool32 VKAPI_CALL

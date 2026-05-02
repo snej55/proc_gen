@@ -3,8 +3,6 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
-#define _DEBUG
-
 #include <vulkan/vulkan.h>
 #include <volk/volk.h>
 
@@ -20,6 +18,8 @@
 #include <string>
 #include <unordered_set>
 #include <array>
+
+#include "engine_types.h"
 
 struct QueueFamilyIndices
 {
@@ -43,6 +43,16 @@ struct FrameData
     VkSemaphore m_swapchainSemaphore;
     VkSemaphore m_renderSemaphore;
     VkFence m_renderFence;
+    DeletionQueue m_deletionQueue{};
+};
+
+struct AllocatedImage
+{
+    VkImage m_image;
+    VkImageView m_imageView;
+    VmaAllocation m_allocation;
+    VkExtent3D m_extent;
+    VkFormat m_imageFormat;
 };
 
 constexpr unsigned int FRAME_OVERLAP{2};
@@ -54,7 +64,10 @@ public:
     ~Context() = default;
 
     void init();
+    void draw();
     void free();
+
+    void tickFrame();
 
     [[nodiscard]] SDL_Window* getWindow() { return m_window; }
 
@@ -78,10 +91,12 @@ public:
     [[nodiscard]] const std::vector<VkImageView>& getSwapchainImageViews() const { return m_swapchainImageViews; }
 
     [[nodiscard]] FrameData& getCurrentFrame() { return m_frames[m_frameNumber % FRAME_OVERLAP]; }
-    void tickFrame() { ++m_frameNumber; }
     [[nodiscard]] std::size_t getFrameNumber() const { return m_frameNumber; }
 
     [[nodiscard]] bool getInit() const { return m_init; }
+
+    [[nodiscard]] DeletionQueue& getFrameDeletionQueue() { return getCurrentFrame().m_deletionQueue; }
+    [[nodiscard]] DeletionQueue& getMainDeletionQueue() { return m_deletionQueue; }
 
 private:
     SDL_Window* m_window{nullptr};
@@ -105,11 +120,18 @@ private:
     VkExtent2D m_swapchainExtent{};
     std::vector<VkImageView> m_swapchainImageViews{};
 
+    AllocatedImage m_drawImage{};
+    VkExtent2D m_drawExtent{};
+
+    VmaAllocator m_allocator{VK_NULL_HANDLE};
+
     std::array<FrameData, FRAME_OVERLAP> m_frames;
     std::size_t m_frameNumber{0};
+    DeletionQueue m_deletionQueue{};
 
     bool m_init{false};
 
+    // ----------- initialization ----------- //
     void initWindow();
     void initVulkan();
 
@@ -122,6 +144,8 @@ private:
     void createLogicalDevice();
 
     void createSwapchain();
+
+    void createAllocator();
 
     [[nodiscard]] std::vector<std::string> enumerateInstanceLayers();
     [[nodiscard]] std::vector<std::string> enumerateInstanceExtensions();
@@ -146,6 +170,10 @@ private:
     // setup sync structures
     void initSyncStructures();
 
+    // ----------- drawing ----------- //
+    void drawBackground(VkCommandBuffer cmd);
+
+    // ----------- validation layers ----------- //
     static VKAPI_ATTR VkBool32 VKAPI_CALL
     debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
 
