@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 
+#define _DEBUG
 #include "src/engine.h"
 
 int main()

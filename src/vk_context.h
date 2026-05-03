@@ -3,6 +3,8 @@
 #ifndef CONTEXT_H
 #define CONTEXT_H
 
+#define _DEBUG
+
 #include <vulkan/vulkan.h>
 #include <volk/volk.h>
 
@@ -42,9 +44,15 @@ struct FrameData
     VkCommandPool m_commandPool;
     VkCommandBuffer m_commandBuffer;
     VkSemaphore m_swapchainSemaphore;
-    VkSemaphore m_renderSemaphore;
     VkFence m_renderFence;
     DeletionQueue m_deletionQueue{};
+};
+
+struct SwapchainImage
+{
+    VkImage m_image;
+    VkImageView m_view;
+    VkSemaphore m_semaphore;
 };
 
 struct AllocatedImage
@@ -63,7 +71,11 @@ struct DescriptorLayoutBuilder
     void addBinding(uint32_t binding, VkDescriptorType type);
     void clear();
 
-    [[nodiscard]] VkDescriptorSetLayout build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext = nullptr, VkDescriptorSetLayoutCreateFlags flags = 0);
+    [[nodiscard]] VkDescriptorSetLayout build(
+        VkDevice device,
+        VkShaderStageFlags shaderStages,
+        void* pNext = nullptr,
+        VkDescriptorSetLayoutCreateFlags flags = 0);
 };
 
 struct DescriptorAllocator
@@ -71,7 +83,7 @@ struct DescriptorAllocator
     struct PoolSizeRatio
     {
         VkDescriptorType type;
-        float ratio;
+        float ratio{1.0f};
     };
 
     VkDescriptorPool m_pool;
@@ -83,7 +95,7 @@ struct DescriptorAllocator
     [[nodiscard]] VkDescriptorSet allocate(VkDevice device, VkDescriptorSetLayout layout);
 };
 
-constexpr unsigned int FRAME_OVERLAP{2};
+constexpr unsigned int FRAME_OVERLAP{3};
 
 class Context
 {
@@ -99,8 +111,14 @@ public:
 
     [[nodiscard]] SDL_Window* getWindow() { return m_window; }
 
-    [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceLayers() const { return m_enabledInstanceLayers; }
-    [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceExtensions() const { return m_enabledInstanceExtensions; }
+    [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceLayers() const
+    {
+        return m_enabledInstanceLayers;
+    }
+    [[nodiscard]] const std::unordered_set<std::string>& getEnabledInstanceExtensions() const
+    {
+        return m_enabledInstanceExtensions;
+    }
 
     [[nodiscard]] VkDebugUtilsMessengerEXT& getDebugMessenger() { return m_debugMessenger; }
 
@@ -113,10 +131,9 @@ public:
     [[nodiscard]] VkQueue& getPresentQueue() { return m_presentQueue; }
 
     [[nodiscard]] VkSwapchainKHR& getSwapchain() { return m_swapchain; }
-    [[nodiscard]] const std::vector<VkImage>& getSwapchainImages() const { return m_swapchainImages; }
+    [[nodiscard]] const std::vector<SwapchainImage>& getSwapchainImages() const { return m_swapchainImages; }
     [[nodiscard]] VkFormat& getSwapchainImageFormat() { return m_swapchainImageFormat; }
     [[nodiscard]] VkExtent2D& getSwapchainExtent() { return m_swapchainExtent; }
-    [[nodiscard]] const std::vector<VkImageView>& getSwapchainImageViews() const { return m_swapchainImageViews; }
 
     [[nodiscard]] FrameData& getCurrentFrame() { return m_frames[m_frameNumber % FRAME_OVERLAP]; }
     [[nodiscard]] std::size_t getFrameNumber() const { return m_frameNumber; }
@@ -143,10 +160,9 @@ private:
     VkQueue m_graphicsQueue{VK_NULL_HANDLE};
     VkQueue m_presentQueue{VK_NULL_HANDLE};
     VkSwapchainKHR m_swapchain{VK_NULL_HANDLE};
-    std::vector<VkImage> m_swapchainImages{};
     VkFormat m_swapchainImageFormat{};
     VkExtent2D m_swapchainExtent{};
-    std::vector<VkImageView> m_swapchainImageViews{};
+    std::vector<SwapchainImage> m_swapchainImages{};
 
     AllocatedImage m_drawImage{};
     VkExtent2D m_drawExtent{};
@@ -156,6 +172,10 @@ private:
     std::array<FrameData, FRAME_OVERLAP> m_frames;
     std::size_t m_frameNumber{0};
     DeletionQueue m_deletionQueue{};
+
+    DescriptorAllocator m_globalDescriptorAllocator;
+    VkDescriptorSet m_drawImageDescriptors;
+    VkDescriptorSetLayout m_drawImageDescriptorLayout;
 
     bool m_init{false};
 
@@ -174,6 +194,8 @@ private:
     void createSwapchain();
 
     void createAllocator();
+
+    void initDescriptors();
 
     [[nodiscard]] std::vector<std::string> enumerateInstanceLayers();
     [[nodiscard]] std::vector<std::string> enumerateInstanceExtensions();
@@ -202,8 +224,11 @@ private:
     void drawBackground(VkCommandBuffer cmd);
 
     // ----------- validation layers ----------- //
-    static VKAPI_ATTR VkBool32 VKAPI_CALL
-    debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData);
+    static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
+        VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+        VkDebugUtilsMessageTypeFlagsEXT messageType,
+        const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+        void* pUserData);
 
     void setupDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
 };

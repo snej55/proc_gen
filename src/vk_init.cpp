@@ -2,7 +2,7 @@
 
 #include "vk_init.h"
 
-void VkInitN::commandPoolCreateInfo(VkCommandPoolCreateInfo* commandCI, uint32_t queueFamilyIndex)
+void VkUtil::commandPoolCreateInfo(VkCommandPoolCreateInfo* commandCI, uint32_t queueFamilyIndex)
 {
     commandCI->sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     commandCI->pNext = nullptr;
@@ -10,7 +10,7 @@ void VkInitN::commandPoolCreateInfo(VkCommandPoolCreateInfo* commandCI, uint32_t
     commandCI->queueFamilyIndex = queueFamilyIndex;
 }
 
-void VkInitN::commandBufferAllocInfo(VkCommandBufferAllocateInfo* allocInfo, VkCommandPool commandPool, uint32_t count)
+void VkUtil::commandBufferAllocInfo(VkCommandBufferAllocateInfo* allocInfo, VkCommandPool commandPool, uint32_t count)
 {
     allocInfo->sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo->pNext = nullptr;
@@ -19,21 +19,21 @@ void VkInitN::commandBufferAllocInfo(VkCommandBufferAllocateInfo* allocInfo, VkC
     allocInfo->level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 }
 
-void VkInitN::fenceCreateInfo(VkFenceCreateInfo* fenceCI, VkFenceCreateFlags flags)
+void VkUtil::fenceCreateInfo(VkFenceCreateInfo* fenceCI, VkFenceCreateFlags flags)
 {
     fenceCI->sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCI->pNext = nullptr;
     fenceCI->flags = flags;
 }
 
-void VkInitN::semaphoreCreateInfo(VkSemaphoreCreateInfo* semaphoreCI, VkSemaphoreCreateFlags flags)
+void VkUtil::semaphoreCreateInfo(VkSemaphoreCreateInfo* semaphoreCI, VkSemaphoreCreateFlags flags)
 {
-    semaphoreCI->sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
+    semaphoreCI->sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     semaphoreCI->pNext = nullptr;
     semaphoreCI->flags = flags;
 }
 
-void VkInitN::commandBufferBeginInfo(VkCommandBufferBeginInfo* cmdBufferCI, VkCommandBufferUsageFlags flags)
+void VkUtil::commandBufferBeginInfo(VkCommandBufferBeginInfo* cmdBufferCI, VkCommandBufferUsageFlags flags)
 {
     cmdBufferCI->sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
     cmdBufferCI->pNext = nullptr;
@@ -42,7 +42,7 @@ void VkInitN::commandBufferBeginInfo(VkCommandBufferBeginInfo* cmdBufferCI, VkCo
     cmdBufferCI->flags = flags;
 }
 
-void VkInitN::semaphoreSubmitInfo(VkSemaphoreSubmitInfo* info, VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+void VkUtil::semaphoreSubmitInfo(VkSemaphoreSubmitInfo* info, VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 {
     info->sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
     info->pNext = nullptr;
@@ -52,7 +52,7 @@ void VkInitN::semaphoreSubmitInfo(VkSemaphoreSubmitInfo* info, VkPipelineStageFl
     info->value = 1;
 }
 
-void VkInitN::commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommandBuffer cmd)
+void VkUtil::commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommandBuffer cmd)
 {
     info->sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
     info->pNext = nullptr;
@@ -60,7 +60,7 @@ void VkInitN::commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommand
     info->deviceMask = 0;
 }
 
-void VkInitN::submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+void VkUtil::submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     info->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
     info->pNext = nullptr;
@@ -75,7 +75,7 @@ void VkInitN::submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, Vk
     info->pCommandBufferInfos = cmd;
 }
 
-VkImageSubresourceRange VkInitN::imageSubresourceRange(VkImageAspectFlags aspectMask)
+VkImageSubresourceRange VkUtil::imageSubresourceRange(VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};
     subImage.aspectMask = aspectMask;
@@ -87,7 +87,7 @@ VkImageSubresourceRange VkInitN::imageSubresourceRange(VkImageAspectFlags aspect
     return subImage;
 }
 
-void VkInitN::imageCreateInfo(VkImageCreateInfo* info, VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+void VkUtil::imageCreateInfo(VkImageCreateInfo* info, VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {
     info->sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     info->pNext = nullptr;
@@ -101,7 +101,7 @@ void VkInitN::imageCreateInfo(VkImageCreateInfo* info, VkFormat format, VkImageU
     info->usage = usageFlags;
 }
 
-void VkInitN::imageViewCreateInfo(VkImageViewCreateInfo* info, VkFormat format, VkImage image, VkImageAspectFlags flags)
+void VkUtil::imageViewCreateInfo(VkImageViewCreateInfo* info, VkFormat format, VkImage image, VkImageAspectFlags flags)
 {
     info->sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
     info->pNext = nullptr;

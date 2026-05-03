@@ -5,7 +5,7 @@
 
 #include <vulkan/vulkan.h>
 
-namespace VkInitN
+namespace VkUtil
 {
     void commandPoolCreateInfo(VkCommandPoolCreateInfo* commandCI, uint32_t queueFamilyIndex);
 
@@ -28,6 +28,6 @@ namespace VkInitN
     void imageCreateInfo(VkImageCreateInfo* info, VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
     void imageViewCreateInfo(VkImageViewCreateInfo* info, VkFormat format, VkImage image, VkImageAspectFlags flags);
-}; // namespace VkInitN
+}; // namespace VkUtil
 
 #endif // VK_INIT_H

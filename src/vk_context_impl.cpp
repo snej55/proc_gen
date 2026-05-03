@@ -30,7 +30,8 @@ void Context::draw()
     VK_CHECK(vkResetFences(m_device, 1, &getCurrentFrame().m_renderFence));
 
     uint32_t swapchainImageIndex;
-    VK_CHECK(vkAcquireNextImageKHR(m_device, m_swapchain, 1e+9, getCurrentFrame().m_swapchainSemaphore, nullptr, &swapchainImageIndex));
+    VK_CHECK(vkAcquireNextImageKHR(
+        m_device, m_swapchain, 1e+9, getCurrentFrame().m_swapchainSemaphore, nullptr, &swapchainImageIndex));
 
     VkCommandBuffer cmd{getCurrentFrame().m_commandBuffer};
     // reset the command buffer
@@ -38,7 +39,7 @@ void Context::draw()
 
     // begin recording
     VkCommandBufferBeginInfo cmdBeginInfo{};
-    VkInitN::commandBufferBeginInfo(&cmdBeginInfo, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VkUtil::commandBufferBeginInfo(&cmdBeginInfo, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
 
     m_drawExtent.width = m_drawImage.m_extent.width;
     m_drawExtent.height = m_drawImage.m_extent.height;
@@ -46,33 +47,45 @@ void Context::draw()
     // start the actual recording :)
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    VkImageN::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    VkUtil::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     // clear image
     drawBackground(cmd);
 
     // make it into presentable mode
-    VkImageN::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
-    VkImageN::transitionImage(cmd, m_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    VkUtil::transitionImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    VkUtil::transitionImage(
+        cmd,
+        m_swapchainImages[swapchainImageIndex].m_image,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-    VkImageN::copyImage2Image(cmd, m_drawImage.m_image, m_swapchainImages[swapchainImageIndex], m_drawExtent, m_swapchainExtent);
+    VkUtil::copyImage2Image(
+        cmd, m_drawImage.m_image, m_swapchainImages[swapchainImageIndex].m_image, m_drawExtent, m_swapchainExtent);
 
-    VkImageN::transitionImage(cmd, m_swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    VkUtil::transitionImage(
+        cmd,
+        m_swapchainImages[swapchainImageIndex].m_image,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     // finish command buffer (can be executed now)
     VK_CHECK(vkEndCommandBuffer(cmd));
 
     // prepare queue submission
     VkCommandBufferSubmitInfo cmdInfo{};
-    VkInitN::commandBufferSubmitInfo(&cmdInfo, cmd);
+    VkUtil::commandBufferSubmitInfo(&cmdInfo, cmd);
 
     VkSemaphoreSubmitInfo waitInfo{};
-    VkInitN::semaphoreSubmitInfo(&waitInfo, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, getCurrentFrame().m_swapchainSemaphore);
-    VkSemaphoreSubmitInfo signalInfo{};
-    VkInitN::semaphoreSubmitInfo(&signalInfo, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame().m_renderSemaphore);
+    VkUtil::semaphoreSubmitInfo(
+        &waitInfo, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, getCurrentFrame().m_swapchainSemaphore);
 
-    VkSubmitInfo2 submit;
-    VkInitN::submitInfo(&submit, &cmdInfo, &signalInfo, &waitInfo);
+    VkSemaphoreSubmitInfo signalInfo{};
+    VkUtil::semaphoreSubmitInfo(
+        &signalInfo, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, m_swapchainImages[swapchainImageIndex].m_semaphore);
+
+    VkSubmitInfo2 submit{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2, .pNext = nullptr, .flags = 0};
+    VkUtil::submitInfo(&submit, &cmdInfo, &signalInfo, &waitInfo);
 
     VK_CHECK(vkQueueSubmit2(m_graphicsQueue, 1, &submit, getCurrentFrame().m_renderFence));
 
@@ -81,7 +94,7 @@ void Context::draw()
     presentInfo.pNext = nullptr;
     presentInfo.pSwapchains = &m_swapchain;
     presentInfo.swapchainCount = 1;
-    presentInfo.pWaitSemaphores = &getCurrentFrame().m_renderSemaphore;
+    presentInfo.pWaitSemaphores = &m_swapchainImages[swapchainImageIndex].m_semaphore;
     presentInfo.waitSemaphoreCount = 1;
     presentInfo.pImageIndices = &swapchainImageIndex;
 
@@ -95,7 +108,7 @@ void Context::drawBackground(VkCommandBuffer cmd)
     const float flash{std::abs(std::sin(static_cast<float>(getFrameNumber() / 2400.f)))};
     clearValue = {{0.0f, 0.0f, flash, 1.0f}};
 
-    VkImageSubresourceRange clearRange{VkInitN::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)};
+    VkImageSubresourceRange clearRange{VkUtil::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT)};
     vkCmdClearColorImage(cmd, m_drawImage.m_image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 }
 
@@ -124,6 +137,7 @@ void Context::initVulkan()
 
     initCommands();
     initSyncStructures();
+    initDescriptors();
 }
 
 void Context::createInstance()
@@ -171,12 +185,24 @@ void Context::createInstance()
 #endif
 
     std::vector<const char*> instanceLayers(m_enabledInstanceLayers.size());
-    std::transform(m_enabledInstanceLayers.begin(), m_enabledInstanceLayers.end(), instanceLayers.begin(), std::mem_fn(&std::string::c_str));
+    std::transform(
+        m_enabledInstanceLayers.begin(),
+        m_enabledInstanceLayers.end(),
+        instanceLayers.begin(),
+        std::mem_fn(&std::string::c_str));
 
     std::vector<const char*> instanceExtensions(m_enabledInstanceExtensions.size());
-    std::transform(m_enabledInstanceExtensions.begin(), m_enabledInstanceExtensions.end(), instanceExtensions.begin(), std::mem_fn(&std::string::c_str));
+    std::transform(
+        m_enabledInstanceExtensions.begin(),
+        m_enabledInstanceExtensions.end(),
+        instanceExtensions.begin(),
+        std::mem_fn(&std::string::c_str));
 
-    const VkApplicationInfo appInfo{.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO, .pApplicationName = "Vulkan Window", .applicationVersion = VK_MAKE_VERSION(1, 0, 0), .apiVersion = VK_API_VERSION_1_3};
+    const VkApplicationInfo appInfo{
+        .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
+        .pApplicationName = "Vulkan Window",
+        .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
+        .apiVersion = VK_API_VERSION_1_3};
 
     VkInstanceCreateInfo instanceCI{
         .sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
@@ -252,7 +278,11 @@ void Context::createLogicalDevice()
     float queuePriority{1.0f};
     for (uint32_t queueFamily : uniqueQueueFamiles)
     {
-        VkDeviceQueueCreateInfo queueCI{.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO, .queueFamilyIndex = queueFamily, .queueCount = 1, .pQueuePriorities = &queuePriority};
+        VkDeviceQueueCreateInfo queueCI{
+            .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            .queueFamilyIndex = queueFamily,
+            .queueCount = 1,
+            .pQueuePriorities = &queuePriority};
         queueCreateInfos.push_back(queueCI);
     }
 
@@ -280,7 +310,11 @@ void Context::createLogicalDevice()
     createInfo.ppEnabledExtensionNames = CST::deviceExtensions.data();
 #ifdef _DEBUG
     std::vector<const char*> instanceLayers(m_enabledInstanceLayers.size());
-    std::transform(m_enabledInstanceLayers.begin(), m_enabledInstanceLayers.end(), instanceLayers.begin(), std::mem_fn(&std::string::c_str));
+    std::transform(
+        m_enabledInstanceLayers.begin(),
+        m_enabledInstanceLayers.end(),
+        instanceLayers.begin(),
+        std::mem_fn(&std::string::c_str));
     createInfo.enabledLayerCount = static_cast<uint32_t>(instanceLayers.size());
     createInfo.ppEnabledLayerNames = instanceLayers.data();
 #else
@@ -348,11 +382,17 @@ void Context::createSwapchain()
 
     VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, nullptr));
     m_swapchainImages.resize(imageCount);
-    VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, m_swapchainImages.data()));
+    std::vector<VkImage> tempSwapchainImages(imageCount);
+    VK_CHECK(vkGetSwapchainImagesKHR(m_device, m_swapchain, &imageCount, tempSwapchainImages.data()));
+    std::transform(
+        tempSwapchainImages.begin(),
+        tempSwapchainImages.end(),
+        m_swapchainImages.begin(),
+        [](VkImage image)
+        { return SwapchainImage{.m_image = image, .m_view = VK_NULL_HANDLE, .m_semaphore = VK_NULL_HANDLE}; });
 
     m_swapchainImageFormat = surfaceFormat.format;
     m_swapchainExtent = extent;
-
 
     m_drawImage.m_imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     const VkExtent3D drawImageExtent{extent.width, extent.height, 1};
@@ -365,7 +405,7 @@ void Context::createSwapchain()
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
     VkImageCreateInfo rimgInfo{};
-    VkInitN::imageCreateInfo(&rimgInfo, m_drawImage.m_imageFormat, drawImageUsages, drawImageExtent);
+    VkUtil::imageCreateInfo(&rimgInfo, m_drawImage.m_imageFormat, drawImageUsages, drawImageExtent);
 
     VmaAllocationCreateInfo rimgAllocInfo{};
     rimgAllocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
@@ -373,7 +413,8 @@ void Context::createSwapchain()
     vmaCreateImage(m_allocator, &rimgInfo, &rimgAllocInfo, &m_drawImage.m_image, &m_drawImage.m_allocation, nullptr);
 
     VkImageViewCreateInfo imageViewCI{};
-    VkInitN::imageViewCreateInfo(&imageViewCI, m_drawImage.m_imageFormat, m_drawImage.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
+    VkUtil::imageViewCreateInfo(
+        &imageViewCI, m_drawImage.m_imageFormat, m_drawImage.m_image, VK_IMAGE_ASPECT_COLOR_BIT);
     VK_CHECK(vkCreateImageView(m_device, &imageViewCI, nullptr, &m_drawImage.m_imageView));
 
     m_deletionQueue.push_function(
@@ -387,7 +428,10 @@ void Context::createSwapchain()
 void Context::createAllocator()
 {
     VmaAllocatorCreateInfo allocatorCI{};
-    VmaVulkanFunctions vkFunctions{.vkGetInstanceProcAddr = vkGetInstanceProcAddr, .vkGetDeviceProcAddr = vkGetDeviceProcAddr, .vkCreateImage = vkCreateImage};
+    VmaVulkanFunctions vkFunctions{
+        .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
+        .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+        .vkCreateImage = vkCreateImage};
     allocatorCI.physicalDevice = m_physicalDevice;
     allocatorCI.device = m_device;
     allocatorCI.instance = m_instance;
@@ -414,7 +458,6 @@ void Context::free()
         vkDestroyCommandPool(m_device, m_frames[i].m_commandPool, nullptr);
 
         vkDestroyFence(m_device, m_frames[i].m_renderFence, nullptr);
-        vkDestroySemaphore(m_device, m_frames[i].m_renderSemaphore, nullptr);
         vkDestroySemaphore(m_device, m_frames[i].m_swapchainSemaphore, nullptr);
         m_frames[i].m_deletionQueue.flush();
     }
@@ -442,7 +485,11 @@ void Context::free()
     VK_CHECK(vkEnumerateInstanceLayerProperties(&instanceLayerCount, layers.data()));
 
     std::vector<std::string> availableLayers;
-    std::transform(layers.begin(), layers.end(), std::back_inserter(availableLayers), [](const VkLayerProperties& properties) { return properties.layerName; });
+    std::transform(
+        layers.begin(),
+        layers.end(),
+        std::back_inserter(availableLayers),
+        [](const VkLayerProperties& properties) { return properties.layerName; });
 
 #ifdef _DEBUG
     fmt::println("Found {} available layer(s):", instanceLayerCount);
@@ -463,7 +510,11 @@ void Context::free()
     VK_CHECK(vkEnumerateInstanceExtensionProperties(nullptr, &instanceExtensionCount, extensions.data()));
 
     std::vector<std::string> availableExtensions;
-    std::transform(extensions.begin(), extensions.end(), std::back_inserter(availableExtensions), [](const VkExtensionProperties& properties) { return properties.extensionName; });
+    std::transform(
+        extensions.begin(),
+        extensions.end(),
+        std::back_inserter(availableExtensions),
+        [](const VkExtensionProperties& properties) { return properties.extensionName; });
 
 #ifdef _DEBUG
     fmt::println("Found {} available extension(s):", instanceExtensionCount);
@@ -579,7 +630,8 @@ void Context::free()
     return details;
 }
 
-[[nodiscard]] VkSurfaceFormatKHR Context::selectSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const
+[[nodiscard]] VkSurfaceFormatKHR
+Context::selectSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& formats) const
 {
     for (const VkSurfaceFormatKHR& format : formats)
     {
@@ -593,7 +645,8 @@ void Context::free()
     return formats[0];
 }
 
-[[nodiscard]] VkPresentModeKHR Context::selectSwapchainPresentMode(const std::vector<VkPresentModeKHR>& presentModes) const
+[[nodiscard]] VkPresentModeKHR
+Context::selectSwapchainPresentMode(const std::vector<VkPresentModeKHR>& presentModes) const
 {
     for (const VkPresentModeKHR& presentMode : presentModes)
     {
@@ -625,13 +678,13 @@ void Context::free()
 
 void Context::createImageViews()
 {
-    m_swapchainImageViews.resize(m_swapchainImages.size());
-    for (std::size_t i{0}; i < m_swapchainImageViews.size(); ++i)
+    for (std::size_t i{0}; i < m_swapchainImages.size(); ++i)
     {
         VkImageViewCreateInfo createInfo{};
         createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        createInfo.image = m_swapchainImages[i];
+        createInfo.image = m_swapchainImages[i].m_image;
         createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = m_swapchainImageFormat;
 
         createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -644,16 +697,17 @@ void Context::createImageViews()
         createInfo.subresourceRange.baseArrayLayer = 0;
         createInfo.subresourceRange.layerCount = 1;
 
-        VK_CHECK(vkCreateImageView(m_device, &createInfo, nullptr, &m_swapchainImageViews[i]));
+        VK_CHECK(vkCreateImageView(m_device, &createInfo, nullptr, &m_swapchainImages[i].m_view));
     }
-    fmt::println("Created {} image views...", m_swapchainImageViews.size());
+    fmt::println("Created {} image views...", m_swapchainImages.size());
 }
 
 void Context::freeSwapchain()
 {
-    for (VkImageView imageView : m_swapchainImageViews)
+    for (SwapchainImage& image : m_swapchainImages)
     {
-        vkDestroyImageView(m_device, imageView, nullptr);
+        vkDestroyImageView(m_device, image.m_view, nullptr);
+        vkDestroySemaphore(m_device, image.m_semaphore, nullptr);
     }
     vkDestroySwapchainKHR(m_device, m_swapchain, nullptr);
 }
@@ -666,19 +720,26 @@ void Context::recreateSwapchain()
 
     createSwapchain();
     createImageViews();
+
+    VkSemaphoreCreateInfo semaphoreCI{};
+    VkUtil::semaphoreCreateInfo(&semaphoreCI, 0);
+    for (std::size_t i{0}; i < m_swapchainImages.size(); ++i)
+    {
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_swapchainImages[i].m_semaphore));
+    }
 }
 
 void Context::initCommands()
 {
     VkCommandPoolCreateInfo commandCI{};
-    VkInitN::commandPoolCreateInfo(&commandCI, m_queueFamilyIndices.graphicsFamily.value());
+    VkUtil::commandPoolCreateInfo(&commandCI, m_queueFamilyIndices.graphicsFamily.value());
 
     for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
     {
         VK_CHECK(vkCreateCommandPool(m_device, &commandCI, nullptr, &m_frames[i].m_commandPool));
 
         VkCommandBufferAllocateInfo cmdAllocInfo{};
-        VkInitN::commandBufferAllocInfo(&cmdAllocInfo, m_frames[i].m_commandPool, 1);
+        VkUtil::commandBufferAllocInfo(&cmdAllocInfo, m_frames[i].m_commandPool, 1);
 
         VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_frames[i].m_commandBuffer));
     }
@@ -687,17 +748,58 @@ void Context::initCommands()
 void Context::initSyncStructures()
 {
     VkFenceCreateInfo fenceCI{};
-    VkInitN::fenceCreateInfo(&fenceCI, VK_FENCE_CREATE_SIGNALED_BIT);
+    VkUtil::fenceCreateInfo(&fenceCI, VK_FENCE_CREATE_SIGNALED_BIT);
     VkSemaphoreCreateInfo semaphoreCI{};
-    VkInitN::semaphoreCreateInfo(&semaphoreCI, 0);
+    VkUtil::semaphoreCreateInfo(&semaphoreCI, 0);
 
     for (std::size_t i{0}; i < FRAME_OVERLAP; ++i)
     {
         VK_CHECK(vkCreateFence(m_device, &fenceCI, nullptr, &m_frames[i].m_renderFence));
 
         VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_swapchainSemaphore));
-        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_frames[i].m_renderSemaphore));
     }
+
+    for (std::size_t i{0}; i < m_swapchainImages.size(); ++i)
+    {
+        VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_swapchainImages[i].m_semaphore));
+    }
+}
+
+void Context::initDescriptors()
+{
+    std::vector<DescriptorAllocator::PoolSizeRatio> sizes{{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1.f}};
+    m_globalDescriptorAllocator.initPool(m_device, 10, sizes);
+
+    // neat in new scope
+    {
+        DescriptorLayoutBuilder builder;
+        builder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        m_drawImageDescriptorLayout = builder.build(m_device, VK_SHADER_STAGE_COMPUTE_BIT);
+    }
+
+    m_drawImageDescriptors = m_globalDescriptorAllocator.allocate(m_device, m_drawImageDescriptorLayout);
+
+    VkDescriptorImageInfo imgInfo{};
+    imgInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imgInfo.imageView = m_drawImage.m_imageView;
+
+    VkWriteDescriptorSet drawImageWrite{.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
+    drawImageWrite.pNext = nullptr;
+
+    drawImageWrite.dstBinding = 0;
+    drawImageWrite.dstSet = m_drawImageDescriptors;
+    drawImageWrite.descriptorCount = 1;
+    drawImageWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    drawImageWrite.pImageInfo = &imgInfo;
+
+    vkUpdateDescriptorSets(m_device, 1, &drawImageWrite, 0, nullptr);
+
+    m_deletionQueue.push_function(
+        [&]()
+        {
+            m_globalDescriptorAllocator.destroyPool(m_device);
+            vkDestroyDescriptorSetLayout(m_device, m_drawImageDescriptorLayout, nullptr);
+        });
 }
 
 void Context::tickFrame()
@@ -706,8 +808,11 @@ void Context::tickFrame()
     getFrameDeletionQueue().flush();
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL
-Context::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData)
+VKAPI_ATTR VkBool32 VKAPI_CALL Context::debugCallback(
+    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
+    VkDebugUtilsMessageTypeFlagsEXT messageType,
+    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
+    void* pUserData)
 {
     std::string colorCode{BEGIN_LOG};
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
@@ -726,8 +831,10 @@ Context::debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, V
 void Context::setupDebugMessenger(VkDebugUtilsMessengerCreateInfoEXT& createInfo)
 {
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+    createInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+    createInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
+        VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = debugCallback;
     createInfo.pUserData = nullptr;
 }

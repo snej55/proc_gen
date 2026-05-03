@@ -5,7 +5,7 @@
 
 #include <volk/volk.h> // vkCmdPipelineBarrier2 is defined here for some reason
 
-void VkImageN::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
+void VkUtil::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout newLayout)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
@@ -24,7 +24,7 @@ void VkImageN::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout
     imageBarrier.newLayout = newLayout;
 
     VkImageAspectFlags aspectMask{(newLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT};
-    imageBarrier.subresourceRange = VkInitN::imageSubresourceRange(aspectMask);
+    imageBarrier.subresourceRange = VkUtil::imageSubresourceRange(aspectMask);
     imageBarrier.image = image;
 
     VkDependencyInfo depInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
@@ -36,7 +36,7 @@ void VkImageN::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void VkImageN::copyImage2Image(VkCommandBuffer cmd, VkImage source, VkImage dest, VkExtent2D srcSize, VkExtent2D dstSize)
+void VkUtil::copyImage2Image(VkCommandBuffer cmd, VkImage source, VkImage dest, VkExtent2D srcSize, VkExtent2D dstSize)
 {
     VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
 
