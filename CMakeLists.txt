@@ -53,8 +53,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(SDL3)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-find_library(Slang_LIBRARY NAMES slang slang-compiler HINTS "$ENV{VULKAN_SDK}/lib" REQUIRED)
+find_program(SLANG_COMPILER slangc 
+    HINTS "$ENV{VULKAN_SDK}/bin" 
+    REQUIRED
+)
 
 FetchContent_Declare(
   fmt
@@ -82,4 +84,4 @@ endif()
 set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 # set_target_properties(${NAME} PROPERTIES UNITY_BUILD ON)
 target_compile_features(${NAME} PRIVATE cxx_std_20)
-target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx ${Slang_LIBRARY} glm::glm)
+target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx glm::glm)

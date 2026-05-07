@@ -60,7 +60,11 @@ void VkUtil::commandBufferSubmitInfo(VkCommandBufferSubmitInfo* info, VkCommandB
     info->deviceMask = 0;
 }
 
-void VkUtil::submitInfo(VkSubmitInfo2* info, VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+void VkUtil::submitInfo(
+    VkSubmitInfo2* info,
+    VkCommandBufferSubmitInfo* cmd,
+    VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+    VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     info->sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
     info->pNext = nullptr;

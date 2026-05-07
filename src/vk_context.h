@@ -177,6 +177,9 @@ private:
     VkDescriptorSet m_drawImageDescriptors;
     VkDescriptorSetLayout m_drawImageDescriptorLayout;
 
+    VkPipeline m_gradientPipeline{VK_NULL_HANDLE};
+    VkPipelineLayout m_gradientPipelineLayout{VK_NULL_HANDLE};
+
     bool m_init{false};
 
     // ----------- initialization ----------- //
@@ -219,6 +222,9 @@ private:
 
     // setup sync structures
     void initSyncStructures();
+
+    void initPipelines();
+    void initBackgroundPipelines();
 
     // ----------- drawing ----------- //
     void drawBackground(VkCommandBuffer cmd);
