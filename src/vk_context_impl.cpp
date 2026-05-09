@@ -144,6 +144,7 @@ void Context::initVulkan()
     initCommands();
     initSyncStructures();
     initDescriptors();
+    initPipelines();
 }
 
 void Context::createInstance()
