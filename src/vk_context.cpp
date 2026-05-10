@@ -16,7 +16,11 @@ void DescriptorLayoutBuilder::addBinding(const uint32_t binding, VkDescriptorTyp
 
 void DescriptorLayoutBuilder::clear() { m_bindings.clear(); }
 
-VkDescriptorSetLayout DescriptorLayoutBuilder::build(VkDevice device, VkShaderStageFlags shaderStages, void* pNext, VkDescriptorSetLayoutCreateFlags flags)
+VkDescriptorSetLayout DescriptorLayoutBuilder::build(
+    VkDevice device,
+    VkShaderStageFlags shaderStages,
+    void* pNext,
+    VkDescriptorSetLayoutCreateFlags flags)
 {
     for (auto& b : m_bindings)
     {
@@ -41,7 +45,8 @@ void DescriptorAllocator::initPool(VkDevice device, uint32_t maxSets, std::span<
     std::vector<VkDescriptorPoolSize> poolSizes;
     for (PoolSizeRatio ratio : poolRatios)
     {
-        poolSizes.push_back(VkDescriptorPoolSize{.type = ratio.type, .descriptorCount = static_cast<uint32_t>(ratio.ratio * maxSets)});
+        poolSizes.push_back(
+            VkDescriptorPoolSize{.type = ratio.type, .descriptorCount = static_cast<uint32_t>(ratio.ratio * maxSets)});
     }
 
     VkDescriptorPoolCreateInfo poolCI{.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO};

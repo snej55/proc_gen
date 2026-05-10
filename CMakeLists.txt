@@ -58,17 +58,35 @@ find_program(SLANG_COMPILER slangc
     REQUIRED
 )
 
+file(GLOB_RECURSE SHADER_SOURCES "src/shaders/*.slang")
+
+foreach(SHADER ${SHADER_SOURCES})
+    get_filename_component(SHADER_NAME ${SHADER} NAME_WLE) # NAME_WLE: name without last extension
+    set(OUTPUT_SPV "${CMAKE_CURRENT_BINARY_DIR}/data/shaders/${SHADER_NAME}.spv")
+
+    get_filename_component(OUT_DIR ${OUTPUT_SPV} DIRECTORY)
+    file(MAKE_DIRECTORY ${OUT_DIR})
+
+    add_custom_command(
+        OUTPUT ${OUTPUT_SPV}
+        COMMAND ${SLANG_COMPILER} ${SHADER} -target spirv -o ${OUTPUT_SPV}
+        DEPENDS ${SHADER}
+        COMMENT "Building SPIR-V: ${SHADER_NAME}.slang"
+    )
+
+    list(APPEND SPV_OUTPUTS ${OUTPUT_SPV})
+endforeach()
+
 FetchContent_Declare(
   fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt
   GIT_TAG 12.1.0) # 10.2.1
 FetchContent_MakeAvailable(fmt)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/")
-
 set(SOURCES main.cpp src/constants.h src/util.h src/vk_context.h src/vk_context.cpp src/vk_context_impl.cpp src/vulkan_impl.cpp src/engine.h src/engine.cpp src/vk_init.h src/vk_init.cpp src/vk_image.h src/vk_image.cpp src/vk_pipelines.h src/vk_pipelines.cpp)
 
 add_executable(${NAME} ${SOURCES})
+target_sources(${NAME} PRIVATE ${SPV_OUTPUTS})
 
 target_compile_definitions(${NAME} PRIVATE VK_NO_PROTOTYPES VK_VERSION_1_3=1 VOLK_MAX_API_VERSION_1_3)
 if (WIN32)
@@ -81,7 +99,6 @@ if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /EHsc)
 endif()
 
-set_target_properties(${NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 # set_target_properties(${NAME} PROPERTIES UNITY_BUILD ON)
 target_compile_features(${NAME} PRIVATE cxx_std_20)
 target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx glm::glm)

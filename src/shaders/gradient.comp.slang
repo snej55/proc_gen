@@ -1,23 +1,26 @@
-#version 460
+#language slang 2026
 
-layout (local_size_x = 16, local_size_y = 16) in;
+[[vk::binding(0, 0)]]
+RWTexture2D<float4> image;
 
-layout(rgba16f, set = 0, binding = 0) uniform image2D image;
+[shader("compute")]
+[numthreads(16, 16, 1)]
 
-void main()
+void main(uint3 GL_GlobalInvocationID : SV_DispatchThreadID, uint3 GL_LocalInvocationID : SV_GroupThreadID)
 {
-    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
-    ivec2 size = imageSize(image);
+    int2 texelCoord = int2(GL_GlobalInvocationID.xy);
+    uint2 size;
+    image.GetDimensions(size.x, size.y);
 
     if (texelCoord.x < size.x && texelCoord.y < size.y)
     {
-        vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
-        if (gl_LocalInvocationID.x != 0 && gl_LocalInvocationID.y != 0)
+        float4 color = float4(0.0, 0.0, 0.0, 1.0);
+        if (GL_LocalInvocationID.x != 0 && GL_LocalInvocationID.y != 0)
         {
             color.x = float(texelCoord.x) / (size.x);
             color.y = float(texelCoord.y) / (size.y);
         }
 
-        imageStore(image, texelCoord, color);
+        image[texelCoord] = color;
     }
 }

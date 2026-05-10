@@ -655,13 +655,13 @@ Context::selectSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& for
 [[nodiscard]] VkPresentModeKHR
 Context::selectSwapchainPresentMode(const std::vector<VkPresentModeKHR>& presentModes) const
 {
-    for (const VkPresentModeKHR& presentMode : presentModes)
-    {
-        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) // ooh yea we like triple buffering
-        {
-            return presentMode;
-        }
-    }
+    // for (const VkPresentModeKHR& presentMode : presentModes)
+    // {
+    //     if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR) // ooh yea we like triple buffering
+    //     {
+    //         return presentMode;
+    //     }
+    // }
     return VK_PRESENT_MODE_FIFO_KHR; // only one guaranteed to be available
 }
 

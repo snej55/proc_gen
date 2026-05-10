@@ -10,6 +10,7 @@
 int main()
 {
     Engine engine{};
+    fmt::println("Running...");
 
     try
     {
