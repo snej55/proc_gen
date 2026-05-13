@@ -78,10 +78,36 @@ foreach(SHADER ${SHADER_SOURCES})
 endforeach()
 
 FetchContent_Declare(
-  fmt
-  GIT_REPOSITORY https://github.com/fmtlib/fmt
-  GIT_TAG 12.1.0) # 10.2.1
+    fmt
+    GIT_REPOSITORY https://github.com/fmtlib/fmt
+    GIT_TAG 12.1.0
+    GIT_SHALLOW ON
+)
 FetchContent_MakeAvailable(fmt)
+
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG v1.92.8
+    GIT_SHALLOW ON
+)
+FetchContent_MakeAvailable(imgui)
+
+set(IMGUI_SOURCES ${imgui_SOURCE_DIR}/imgui.h
+    ${imgui_SOURCE_DIR}/imgui.cpp
+
+    ${imgui_SOURCE_DIR}/imgui_demo.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl3.cpp
+)
+
+add_library(imgui STATIC ${IMGUI_SOURCES})
+
+target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/backends)
+target_link_libraries(imgui PUBLIC Vulkan::Vulkan SDL3::SDL3-shared)
 
 set(SOURCES main.cpp src/constants.h src/util.h src/vk_context.h src/vk_context.cpp src/vk_context_impl.cpp src/vulkan_impl.cpp src/engine.h src/engine.cpp src/vk_init.h src/vk_init.cpp src/vk_image.h src/vk_image.cpp src/vk_pipelines.h src/vk_pipelines.cpp)
 
@@ -101,4 +127,4 @@ endif()
 
 # set_target_properties(${NAME} PROPERTIES UNITY_BUILD ON)
 target_compile_features(${NAME} PRIVATE cxx_std_20)
-target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx glm::glm)
+target_link_libraries(${NAME} PRIVATE Vulkan::Vulkan fmt::fmt SDL3::SDL3 ktx glm::glm imgui)
