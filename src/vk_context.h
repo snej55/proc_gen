@@ -143,6 +143,8 @@ public:
     [[nodiscard]] DeletionQueue& getFrameDeletionQueue() { return getCurrentFrame().m_deletionQueue; }
     [[nodiscard]] DeletionQueue& getMainDeletionQueue() { return m_deletionQueue; }
 
+    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+
 private:
     SDL_Window* m_window{nullptr};
 
@@ -180,6 +182,10 @@ private:
     VkPipeline m_gradientPipeline{VK_NULL_HANDLE};
     VkPipelineLayout m_gradientPipelineLayout{VK_NULL_HANDLE};
 
+    VkFence m_immFence{VK_NULL_HANDLE};
+    VkCommandBuffer m_immCommandBuffer{VK_NULL_HANDLE};
+    VkCommandPool m_immCommandPool{VK_NULL_HANDLE};
+
     bool m_init{false};
 
     // ----------- initialization ----------- //
@@ -198,7 +204,7 @@ private:
 
     void createAllocator();
 
-    void initDescriptors();
+    void initImGUI();
 
     [[nodiscard]] std::vector<std::string> enumerateInstanceLayers();
     [[nodiscard]] std::vector<std::string> enumerateInstanceExtensions();
@@ -225,6 +231,7 @@ private:
 
     void initPipelines();
     void initBackgroundPipelines();
+    void initDescriptors();
 
     // ----------- drawing ----------- //
     void drawBackground(VkCommandBuffer cmd);

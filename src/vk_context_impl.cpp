@@ -14,6 +14,10 @@
 #include <set>
 #include <limits>
 
+#include "imgui.h"
+#include "imgui_impl_sdl3.h"
+#include "imgui_impl_vulkan.h"
+
 void Context::init()
 {
     assert(!m_init);
@@ -101,6 +105,29 @@ void Context::draw()
 
     VK_CHECK(vkQueuePresentKHR(m_graphicsQueue, &presentInfo));
     tickFrame();
+}
+
+void Context::immediateSubmit(std::function<void(VkCommandBuffer)>&& function)
+{
+    VK_CHECK(vkResetFences(m_device, 1, &m_immFence));
+    VK_CHECK(vkResetCommandBuffer(m_immCommandBuffer, 0));
+
+    VkCommandBuffer cmd{m_immCommandBuffer};
+    VkCommandBufferBeginInfo cmdBeginInfo{};
+    VkUtil::commandBufferBeginInfo(&cmdBeginInfo, VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    function(cmd);
+
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    VkCommandBufferSubmitInfo cmdInfo{};
+    VkUtil::commandBufferSubmitInfo(&cmdInfo, cmd);
+    VkSubmitInfo2 submit{};
+    VkUtil::submitInfo(&submit, &cmdInfo, nullptr, nullptr);
+
+    VK_CHECK(vkQueueSubmit2(m_graphicsQueue, 1, &submit, m_immFence));
+    VK_CHECK(vkWaitForFences(m_device, 1, &m_immFence, true, 9999999999));
 }
 
 void Context::drawBackground(VkCommandBuffer cmd)
@@ -749,6 +776,14 @@ void Context::initCommands()
 
         VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_frames[i].m_commandBuffer));
     }
+
+    VK_CHECK(vkCreateCommandPool(m_device, &commandCI, nullptr, &m_immCommandPool));
+
+    VkCommandBufferAllocateInfo cmdAllocInfo{};
+    VkUtil::commandBufferAllocInfo(&cmdAllocInfo, m_immCommandPool, 1);
+    VK_CHECK(vkAllocateCommandBuffers(m_device, &cmdAllocInfo, &m_immCommandBuffer));
+
+    m_deletionQueue.push_function([&]() { vkDestroyCommandPool(m_device, m_immCommandPool, nullptr); });
 }
 
 void Context::initSyncStructures()
@@ -769,6 +804,9 @@ void Context::initSyncStructures()
     {
         VK_CHECK(vkCreateSemaphore(m_device, &semaphoreCI, nullptr, &m_swapchainImages[i].m_semaphore));
     }
+
+    VK_CHECK(vkCreateFence(m_device, &fenceCI, nullptr, &m_immFence));
+    m_deletionQueue.push_function([&]() { vkDestroyFence(m_device, m_immFence, nullptr); });
 }
 
 void Context::initDescriptors()
